@@ -144,12 +144,12 @@
         const odo = safeGet(sig,'Main_Odometer','Odometer');
 
         updateSOC(soc);
-        document.getElementById('batteryEnergy').textContent = batteryEnergy ?? '-';
-        document.getElementById('speed').textContent = (speed ?? 0) + ' km/h';
-        document.getElementById('rpm').textContent = rpm ?? 0;
-        document.getElementById('acc').textContent = acc ?? 0;
+        document.getElementById('batteryEnergy').textContent = (batteryEnergy != null) ? Number(batteryEnergy).toFixed(2) : '-';
+        document.getElementById('speed').textContent = Number(speed ?? 0).toFixed(2) + ' km/h';
+        document.getElementById('rpm').textContent = Number(rpm ?? 0).toFixed(2);
+        document.getElementById('acc').textContent = Number(acc ?? 0).toFixed(2);
         document.getElementById('spray').textContent = (spray==1)?'On':'Off';
-        document.getElementById('odo').textContent = (odo ?? 0) + ' km';
+        document.getElementById('odo').textContent = Number(odo ?? 0).toFixed(2) + ' km';
 
         // drive mode display
         let driveMode = 'Unknown';
