@@ -25,9 +25,17 @@
     .metric .value{font-size:18px;color:#fff;font-weight:600}
     .muted{color:var(--muted);font-size:12px}
     .footer{margin-top:auto;font-size:12px;color:var(--muted);}
+    .map-controls{position:absolute;bottom:20px;left:20px;display:flex;gap:8px;z-index:1000}
+    .map-btn{padding:10px 14px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;transition:background .2s}
+    .map-btn:hover{background:#0891b2}
     @media (max-width:900px){
       .app{grid-template-columns:1fr;grid-template-areas:"header" "map" "sidebar"}
       aside{order:3}
+      .map-controls{bottom:12px;left:12px}
+      .map-btn{padding:8px 12px;font-size:12px}
+    }
+    @media (max-width:600px){
+      .map-btn{padding:6px 10px;font-size:11px}
     }
   </style>
 </head>
@@ -38,8 +46,12 @@
       <div id="status" class="muted">Connecting…</div>
     </header>
 
-    <div id="map"></div>
-    <button id="focusBtn" style="position:absolute;bottom:20px;left:20px;padding:8px 16px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;z-index:1000">📍 Focus on Vehicle</button>
+    <div id="map">
+      <div class="map-controls">
+        <button id="focusBtn" class="map-btn" title="Zoom to vehicle">📍 Focus</button>
+        <button id="satelliteBtn" class="map-btn" title="Toggle satellite view">🛰️ Satellite</button>
+      </div>
+    </div>
 
     <aside>
       <div class="soc-card">
@@ -87,7 +99,14 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map('map', {zoomControl:true}).setView([16.05,80.35],15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    
+    // Tile layers
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'});
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'© Esri'});
+    
+    osmLayer.addTo(map);
+    let isSatellite = false;
+    
     let marker = null; let polyline = L.polyline([], {color:'#06b6d4'}).addTo(map);
     let currentLatLng = null;
 
@@ -95,6 +114,24 @@
     document.getElementById('focusBtn').addEventListener('click', ()=>{
       if(currentLatLng){
         map.setView(currentLatLng, 17);
+      }
+    });
+
+    // Satellite view toggle
+    document.getElementById('satelliteBtn').addEventListener('click', ()=>{
+      const btn = document.getElementById('satelliteBtn');
+      if(isSatellite){
+        map.removeLayer(satelliteLayer);
+        map.addLayer(osmLayer);
+        btn.style.background = '#06b6d4';
+        btn.textContent = '🛰️ Satellite';
+        isSatellite = false;
+      } else {
+        map.removeLayer(osmLayer);
+        map.addLayer(satelliteLayer);
+        btn.style.background = '#f59e0b';
+        btn.textContent = '🗺️ Map';
+        isSatellite = true;
       }
     });
 
