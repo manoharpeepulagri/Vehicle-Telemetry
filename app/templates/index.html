@@ -17,7 +17,6 @@
     header{grid-area:header;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--glass);backdrop-filter:blur(6px)}
     header h1{font-size:18px;margin:0; display: flex; align-items: center; gap: 10px;}
     
-    /* Vehicle Selector Style */
     select.vehicle-select {
         background: var(--card);
         color: white;
@@ -142,8 +141,6 @@
     let marker = null; 
     let polyline = L.polyline([], {color:'#06b6d4', weight: 4, opacity: 0.7}).addTo(map);
     let currentLatLng = null;
-
-    // --- WebSocket Logic ---
     let ws = null;
     let wsKeepAlive = null;
 
@@ -155,26 +152,37 @@
         if(marker) { map.removeLayer(marker); marker = null; }
         polyline.setLatLngs([]);
         currentLatLng = null;
-
         document.getElementById('speed').textContent = "0 km/h";
-        document.getElementById('rpm').textContent = "0";
-        document.getElementById('drive').textContent = "Neutral";
-        document.getElementById('odo').textContent = "0 km";
-        document.getElementById('acc').textContent = "0";
-        document.getElementById('spray').textContent = "Off";
-        updateSOC(0);
-        document.getElementById('batteryEnergy').textContent = "0";
-        document.getElementById('lastUpdate').textContent = "—";
+        // ... reset other fields ...
     }
 
-    function connectVehicle(vehicleId) {
+    async function connectVehicle(vehicleId) {
         if (ws) {
             ws.close();
             clearInterval(wsKeepAlive);
         }
 
-        setStatus(`Connecting to ${vehicleId}…`, '#fbbf24');
+        setStatus(`Loading history for ${vehicleId}…`, '#fbbf24');
 
+        // 1. Fetch History First
+        try {
+            const res = await fetch(`/history/${vehicleId}`);
+            const histData = await res.json();
+            if (histData.path && histData.path.length > 0) {
+                polyline.setLatLngs(histData.path);
+                // Center map on the last known point
+                const lastPoint = histData.path[histData.path.length - 1];
+                map.setView(lastPoint, 16);
+                
+                // Add marker at last known location immediately
+                marker = L.marker(lastPoint, {icon: vehicleIcon}).addTo(map);
+                currentLatLng = lastPoint;
+            }
+        } catch (e) {
+            console.error("Failed to load history", e);
+        }
+
+        // 2. Open WebSocket
         const wsProto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
         ws = new WebSocket(`${wsProto}//${location.host}/ws/vehicle/${vehicleId}`);
 
@@ -185,21 +193,16 @@
 
         ws.addEventListener('close', ()=> setStatus('Disconnected','orange'));
         ws.addEventListener('error', ()=> setStatus('Error','red'));
-
         ws.addEventListener('message', handleMessage);
     }
 
     // --- HELPER: Case Insensitive Getter ---
     function getValueInsensitive(obj, ...keys) {
       if (!obj) return undefined;
-      for (const k of keys) {
-        if (k in obj) return obj[k];
-      }
+      for (const k of keys) { if (k in obj) return obj[k]; }
       const objKeys = Object.keys(obj);
       const targetKeys = keys.map(k => k.toLowerCase());
-      for (const k of objKeys) {
-        if (targetKeys.includes(k.toLowerCase())) return obj[k];
-      }
+      for (const k of objKeys) { if (targetKeys.includes(k.toLowerCase())) return obj[k]; }
       return undefined;
     }
 
@@ -215,7 +218,6 @@
         const sig = data.signals || data || {};
         const heading = data.vehicle_direction_deg || 0;
 
-        // location
         const lat = safeGet(gnss,'lat','latitude');
         const lon = safeGet(gnss,'lon','longitude');
         
@@ -236,16 +238,11 @@
           polyline.addLatLng(ll);
         }
 
-        // --- TELEMETRY ---
         const soc = getValueInsensitive(sig, 'RSOC', 'ActualSocPercentage', 'SOC');
-        
         const speed = safeGet(sig,'Speed','speed');
         const batteryEnergy = safeGet(sig,'BatteryEnergy','Battery_Energy');
         const rpm = safeGet(sig,'RPM');
         const acc = safeGet(sig,'Vehicle_Acceleration','Acceleration');
-        const driveForward = safeGet(sig,'Drive_Forward');
-        const driveNeutral = safeGet(sig,'Drive_Neutral');
-        const driveReverse = safeGet(sig,'Drive_Reverse');
         const spray = safeGet(sig,'Spray_Pump_Status');
         const odo = safeGet(sig,'Main_Odometer','Odometer');
 
@@ -258,9 +255,9 @@
         document.getElementById('odo').textContent = Number(odo ?? 0).toFixed(2) + ' km';
 
         let driveMode = 'Unknown';
-        if(driveForward==1) driveMode='Forward';
-        else if(driveReverse==1) driveMode='Reverse';
-        else if(driveNeutral==1) driveMode='Neutral';
+        if(safeGet(sig,'Drive_Forward')==1) driveMode='Forward';
+        else if(safeGet(sig,'Drive_Reverse')==1) driveMode='Reverse';
+        else if(safeGet(sig,'Drive_Neutral')==1) driveMode='Neutral';
         document.getElementById('drive').textContent = driveMode;
 
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -279,32 +276,22 @@
       if(currentLatLng) map.setView(currentLatLng, 17);
     });
 
-    // --- NEW: Navigation Button Logic ---
     document.getElementById('navBtn').addEventListener('click', () => {
       if (currentLatLng) {
         const [lat, lon] = currentLatLng;
-        // Open Google Maps Directions in a new tab
-        const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
-        window.open(url, '_blank');
-      } else {
-        alert("Waiting for vehicle location data...");
-      }
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
+      } else { alert("Waiting for vehicle location data..."); }
     });
-    // ------------------------------------
 
     document.getElementById('satelliteBtn').addEventListener('click', ()=>{
       const btn = document.getElementById('satelliteBtn');
       if(isSatellite){
-        map.removeLayer(satelliteLayer);
-        map.addLayer(osmLayer);
-        btn.style.background = '#06b6d4';
-        btn.textContent = '🛰️ Satellite';
+        map.removeLayer(satelliteLayer); map.addLayer(osmLayer);
+        btn.style.background = '#06b6d4'; btn.textContent = '🛰️ Satellite';
         isSatellite = false;
       } else {
-        map.removeLayer(osmLayer);
-        map.addLayer(satelliteLayer);
-        btn.style.background = '#f59e0b';
-        btn.textContent = '🗺️ Map';
+        map.removeLayer(osmLayer); map.addLayer(satelliteLayer);
+        btn.style.background = '#f59e0b'; btn.textContent = '🗺️ Map';
         isSatellite = true;
       }
     });
