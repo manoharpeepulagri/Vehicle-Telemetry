@@ -13,8 +13,21 @@
     }
     html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial;color:#e6eef6;background:linear-gradient(180deg,#071022 0%, #071a2a 100%);}
     .app{display:grid;grid-template-columns:1fr 360px;grid-template-rows:56px 1fr;grid-template-areas:"header header" "map sidebar";height:100vh;gap:12px;padding:12px;box-sizing:border-box}
+    
     header{grid-area:header;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--glass);backdrop-filter:blur(6px)}
-    header h1{font-size:18px;margin:0}
+    header h1{font-size:18px;margin:0; display: flex; align-items: center; gap: 10px;}
+    
+    /* Vehicle Selector Style */
+    select.vehicle-select {
+        background: var(--card);
+        color: white;
+        border: 1px solid var(--muted);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
     #map{grid-area:map;border-radius:8px;overflow:hidden}
     aside{grid-area:sidebar;padding:12px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);box-shadow:0 6px 18px rgba(2,6,23,0.6);display:flex;flex-direction:column;gap:12px}
     .soc-card{display:flex;flex-direction:column;gap:8px}
@@ -28,21 +41,27 @@
     .map-controls{position:absolute;bottom:20px;left:20px;display:flex;gap:8px;z-index:1000}
     .map-btn{padding:10px 14px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;transition:background .2s}
     .map-btn:hover{background:#0891b2}
+    
+    .vehicle-marker { background: transparent; border: none; }
+    
     @media (max-width:900px){
       .app{grid-template-columns:1fr;grid-template-areas:"header" "map" "sidebar"}
       aside{order:3}
       .map-controls{bottom:12px;left:12px}
       .map-btn{padding:8px 12px;font-size:12px}
     }
-    @media (max-width:600px){
-      .map-btn{padding:6px 10px;font-size:11px}
-    }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>Vehicle Live Telemetry</h1>
+      <h1>
+        Vehicle: 
+        <select id="vehicleSelect" class="vehicle-select">
+            <option value="nandi_1" selected>Nandi 1</option>
+            <option value="nandi_2">Nandi 2</option>
+        </select>
+      </h1>
       <div id="status" class="muted">Connecting…</div>
     </header>
 
@@ -50,6 +69,7 @@
       <div class="map-controls">
         <button id="focusBtn" class="map-btn" title="Zoom to vehicle">📍 Focus</button>
         <button id="satelliteBtn" class="map-btn" title="Toggle satellite view">🛰️ Satellite</button>
+        <button id="navBtn" class="map-btn" title="Get directions">🚗 Navigate</button>
       </div>
     </div>
 
@@ -100,24 +120,178 @@
   <script>
     const map = L.map('map', {zoomControl:true}).setView([16.05,80.35],15);
     
-    // Tile layers
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'});
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'© Esri'});
     
     osmLayer.addTo(map);
     let isSatellite = false;
     
-    let marker = null; let polyline = L.polyline([], {color:'#06b6d4'}).addTo(map);
-    let currentLatLng = null;
+    const vehicleSvg = `
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="#06b6d4" stroke="#ffffff" stroke-width="2" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform-origin: center;">
+        <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
+      </svg>
+    `;
 
-    // Focus on vehicle button
-    document.getElementById('focusBtn').addEventListener('click', ()=>{
-      if(currentLatLng){
-        map.setView(currentLatLng, 17);
-      }
+    const vehicleIcon = L.divIcon({
+      className: 'vehicle-marker',
+      html: `<div id="vehicle-arrow" style="transition: transform 0.3s ease;">${vehicleSvg}</div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
     });
 
-    // Satellite view toggle
+    let marker = null; 
+    let polyline = L.polyline([], {color:'#06b6d4', weight: 4, opacity: 0.7}).addTo(map);
+    let currentLatLng = null;
+
+    // --- WebSocket Logic ---
+    let ws = null;
+    let wsKeepAlive = null;
+
+    function setStatus(text, color){
+      const el = document.getElementById('status'); el.textContent = text; if(color) el.style.color = color; else el.style.color='';
+    }
+
+    function resetDashboard() {
+        if(marker) { map.removeLayer(marker); marker = null; }
+        polyline.setLatLngs([]);
+        currentLatLng = null;
+
+        document.getElementById('speed').textContent = "0 km/h";
+        document.getElementById('rpm').textContent = "0";
+        document.getElementById('drive').textContent = "Neutral";
+        document.getElementById('odo').textContent = "0 km";
+        document.getElementById('acc').textContent = "0";
+        document.getElementById('spray').textContent = "Off";
+        updateSOC(0);
+        document.getElementById('batteryEnergy').textContent = "0";
+        document.getElementById('lastUpdate').textContent = "—";
+    }
+
+    function connectVehicle(vehicleId) {
+        if (ws) {
+            ws.close();
+            clearInterval(wsKeepAlive);
+        }
+
+        setStatus(`Connecting to ${vehicleId}…`, '#fbbf24');
+
+        const wsProto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${wsProto}//${location.host}/ws/vehicle/${vehicleId}`);
+
+        ws.addEventListener('open', ()=>{ 
+            setStatus(`Connected (${vehicleId})`, 'lightgreen');
+            wsKeepAlive = setInterval(()=>{ if(ws.readyState===WebSocket.OPEN) ws.send('ping'); }, 30000);
+        });
+
+        ws.addEventListener('close', ()=> setStatus('Disconnected','orange'));
+        ws.addEventListener('error', ()=> setStatus('Error','red'));
+
+        ws.addEventListener('message', handleMessage);
+    }
+
+    // --- HELPER: Case Insensitive Getter ---
+    function getValueInsensitive(obj, ...keys) {
+      if (!obj) return undefined;
+      for (const k of keys) {
+        if (k in obj) return obj[k];
+      }
+      const objKeys = Object.keys(obj);
+      const targetKeys = keys.map(k => k.toLowerCase());
+      for (const k of objKeys) {
+        if (targetKeys.includes(k.toLowerCase())) return obj[k];
+      }
+      return undefined;
+    }
+
+    function safeGet(obj, ...keys){
+      for(const k of keys){ if(obj && (k in obj)) return obj[k]; }
+      return undefined;
+    }
+
+    function handleMessage(ev) {
+      try{
+        const data = JSON.parse(ev.data);
+        const gnss = data.gnss || data.location || {};
+        const sig = data.signals || data || {};
+        const heading = data.vehicle_direction_deg || 0;
+
+        // location
+        const lat = safeGet(gnss,'lat','latitude');
+        const lon = safeGet(gnss,'lon','longitude');
+        
+        if(typeof lat==='number' && typeof lon==='number'){
+          const ll=[lat,lon];
+          currentLatLng = ll;
+          
+          if(!marker){ 
+            marker = L.marker(ll, {icon: vehicleIcon}).addTo(map); 
+            map.setView(ll,16); 
+          } else { 
+            marker.setLatLng(ll); 
+          }
+          
+          const arrowEl = document.getElementById('vehicle-arrow');
+          if(arrowEl) arrowEl.style.transform = `rotate(${heading}deg)`;
+
+          polyline.addLatLng(ll);
+        }
+
+        // --- TELEMETRY ---
+        const soc = getValueInsensitive(sig, 'RSOC', 'ActualSocPercentage', 'SOC');
+        
+        const speed = safeGet(sig,'Speed','speed');
+        const batteryEnergy = safeGet(sig,'BatteryEnergy','Battery_Energy');
+        const rpm = safeGet(sig,'RPM');
+        const acc = safeGet(sig,'Vehicle_Acceleration','Acceleration');
+        const driveForward = safeGet(sig,'Drive_Forward');
+        const driveNeutral = safeGet(sig,'Drive_Neutral');
+        const driveReverse = safeGet(sig,'Drive_Reverse');
+        const spray = safeGet(sig,'Spray_Pump_Status');
+        const odo = safeGet(sig,'Main_Odometer','Odometer');
+
+        updateSOC(soc);
+        document.getElementById('batteryEnergy').textContent = (batteryEnergy != null) ? Number(batteryEnergy).toFixed(2) : '-';
+        document.getElementById('speed').textContent = Number(speed ?? 0).toFixed(2) + ' km/h';
+        document.getElementById('rpm').textContent = Number(rpm ?? 0).toFixed(2);
+        document.getElementById('acc').textContent = Number(acc ?? 0).toFixed(2);
+        document.getElementById('spray').textContent = (spray==1)?'On':'Off';
+        document.getElementById('odo').textContent = Number(odo ?? 0).toFixed(2) + ' km';
+
+        let driveMode = 'Unknown';
+        if(driveForward==1) driveMode='Forward';
+        else if(driveReverse==1) driveMode='Reverse';
+        else if(driveNeutral==1) driveMode='Neutral';
+        document.getElementById('drive').textContent = driveMode;
+
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+      }catch(e){ console.warn('invalid payload', e); }
+    }
+
+    const vehicleSelect = document.getElementById('vehicleSelect');
+    connectVehicle(vehicleSelect.value);
+    
+    vehicleSelect.addEventListener('change', (e) => {
+        resetDashboard();
+        connectVehicle(e.target.value);
+    });
+
+    document.getElementById('focusBtn').addEventListener('click', ()=>{
+      if(currentLatLng) map.setView(currentLatLng, 17);
+    });
+
+    // --- NEW: Navigation Button Logic ---
+    document.getElementById('navBtn').addEventListener('click', () => {
+      if (currentLatLng) {
+        const [lat, lon] = currentLatLng;
+        // Open Google Maps Directions in a new tab
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+        window.open(url, '_blank');
+      } else {
+        alert("Waiting for vehicle location data...");
+      }
+    });
+    // ------------------------------------
+
     document.getElementById('satelliteBtn').addEventListener('click', ()=>{
       const btn = document.getElementById('satelliteBtn');
       if(isSatellite){
@@ -135,79 +309,12 @@
       }
     });
 
-    function setStatus(text, color){
-      const el = document.getElementById('status'); el.textContent = text; if(color) el.style.color = color; else el.style.color='';
-    }
-
-    const wsProto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${wsProto}//${location.host}/ws/vehicle`);
-
-    ws.addEventListener('open', ()=>{ setStatus('Connected','lightgreen');
-      // keepalive
-      setInterval(()=>{ if(ws.readyState===WebSocket.OPEN) ws.send('ping'); },30000);
-    });
-    ws.addEventListener('close', ()=> setStatus('Disconnected','orange'));
-    ws.addEventListener('error', ()=> setStatus('Error','red'));
-
     function updateSOC(val){
       const v = Number(val) || 0; const pct = Math.max(0,Math.min(100,Math.round(v)));
       const fill = document.getElementById('socFill'); const text = document.getElementById('socText');
       fill.style.width = pct + '%'; text.textContent = pct + '%';
       if(pct>=75) fill.style.background='var(--success)'; else if(pct>=40) fill.style.background='var(--warn)'; else fill.style.background='var(--danger)';
     }
-
-    function safeGet(obj, ...keys){
-      for(const k of keys){ if(obj && (k in obj)) return obj[k]; }
-      return undefined;
-    }
-
-    ws.addEventListener('message', (ev)=>{
-      try{
-        const data = JSON.parse(ev.data);
-        const gnss = data.gnss || data.location || {};
-        const sig = data.signals || data || {};
-
-        // location
-        const lat = safeGet(gnss,'lat','latitude');
-        const lon = safeGet(gnss,'lon','longitude');
-        if(typeof lat==='number' && typeof lon==='number'){
-          const ll=[lat,lon];
-          currentLatLng = ll;
-          if(!marker){ marker = L.marker(ll).addTo(map); map.setView(ll,16); }
-          else marker.setLatLng(ll);
-          polyline.addLatLng(ll);
-        }
-
-        // telemetry fields - robust to nested or flat payloads
-        const soc = safeGet(sig,'ActualSOCPercentage','SOC','SoC');
-        const speed = safeGet(sig,'Speed','speed');
-        const batteryEnergy = safeGet(sig,'BatteryEnergy','Battery_Energy','BatteryEnergy');
-        const rpm = safeGet(sig,'RPM');
-        const acc = safeGet(sig,'Vehicle_Acceleration','Acceleration');
-        const driveForward = safeGet(sig,'Drive_Forward');
-        const driveNeutral = safeGet(sig,'Drive_Neutral');
-        const driveReverse = safeGet(sig,'Drive_Reverse');
-        const spray = safeGet(sig,'Spray_Pump_Status');
-        const odo = safeGet(sig,'Main_Odometer','Odometer');
-
-        updateSOC(soc);
-        document.getElementById('batteryEnergy').textContent = (batteryEnergy != null) ? Number(batteryEnergy).toFixed(2) : '-';
-        document.getElementById('speed').textContent = Number(speed ?? 0).toFixed(2) + ' km/h';
-        document.getElementById('rpm').textContent = Number(rpm ?? 0).toFixed(2);
-        document.getElementById('acc').textContent = Number(acc ?? 0).toFixed(2);
-        document.getElementById('spray').textContent = (spray==1)?'On':'Off';
-        document.getElementById('odo').textContent = Number(odo ?? 0).toFixed(2) + ' km';
-
-        // drive mode display
-        let driveMode = 'Unknown';
-        if(driveForward==1) driveMode='Forward';
-        else if(driveReverse==1) driveMode='Reverse';
-        else if(driveNeutral==1) driveMode='Neutral';
-        document.getElementById('drive').textContent = driveMode;
-
-        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-      }catch(e){ console.warn('invalid payload', e); }
-    });
   </script>
 </body>
 </html>
