@@ -31,28 +31,40 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Throttling tracker for stress logs
+# Trackers
 stress_log_tracker = defaultdict(lambda: datetime.min)
+last_cleanup_date = None  # NEW: Optimizes the midnight reset check
 
 def cleanup_old_logs():
-    """Deletes logs that do not match today's date."""
+    """
+    Deletes logs that do not match today's date.
+    Running this resets the CSV data for the new day.
+    """
     try:
         today_str = datetime.now().strftime("%Y-%m-%d")
+        print(f"🧹 Performing Daily Cleanup for {today_str}...")
         for filename in os.listdir(LOG_DIR):
             if filename.endswith(".csv") and "stress_events" not in filename:
                 if not filename.startswith(today_str):
                     try:
                         os.remove(os.path.join(LOG_DIR, filename))
-                    except: pass
+                        print(f"   - Deleted old log: {filename}")
+                    except Exception as e:
+                        print(f"   - Failed to delete {filename}: {e}")
     except Exception as e:
         print(f"Cleanup Error: {e}")
 
 def save_to_csv(vehicle_id, data):
-    """Saves telemetry data including spray status."""
+    """Saves telemetry data. Triggers reset if date changes."""
+    global last_cleanup_date
     try:
-        cleanup_old_logs()
-
+        # --- NEW: Optimized Midnight Reset ---
         today = datetime.now().strftime("%Y-%m-%d")
+        if last_cleanup_date != today:
+            cleanup_old_logs()
+            last_cleanup_date = today
+        # -------------------------------------
+
         filename = f"{LOG_DIR}/{today}_{vehicle_id}.csv"
         file_exists = os.path.isfile(filename)
 
@@ -197,9 +209,8 @@ async def handle_message(client, topic, payload, qos, properties):
             vid = parts[1]
             data = json.loads(payload.decode())
             
-            # --- CRITICAL FIX: Tag data with vehicle_id ---
+            # Tag data for frontend filtering
             data['vehicle_id'] = vid 
-            # ----------------------------------------------
             
             await run_in_threadpool(save_to_csv, vid, data)
             await run_in_threadpool(check_stress_events, vid, data)

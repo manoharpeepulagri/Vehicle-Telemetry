@@ -205,7 +205,7 @@
         <div class="metric"><span style="font-size:10px">Drive</span><div class="value" id="drive">N</div></div>
       </div>
 
-      <button id="openDiagBtn" class="diag-btn">📋 Open Diagnostics</button>
+      <button id="openDiagBtn" class="diag-btn">Open Diagnostics</button>
 
       <div class="footer" style="font-size:10px; margin-top: 10px; color: var(--muted); text-align: center;">
         Last update: <span id="lastUpdate">—</span>
@@ -261,18 +261,17 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // --- UPDATED: PREFER CANVAS ---
-    // preferCanvas: true forces paths to be drawn on canvas, which allows screenshot capture
+    // --- MAP SETUP ---
+    // preferCanvas: true is ESSENTIAL for html2canvas to capture paths/lines
     const map = L.map('map', {zoomControl:true, maxZoom: 22, preferCanvas: true}).setView([16.05,80.35],15);
     
-    // 1. OpenStreetMap Layer
+    // Layers with zoom support > 19
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxNativeZoom: 19, 
         maxZoom: 22, 
         attribution:'© OpenStreetMap'
     });
     
-    // 2. Satellite Layer
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxNativeZoom: 19, 
         maxZoom: 22, 
@@ -284,6 +283,7 @@
 
     let isSatellite = false;
     
+    // --- VEHICLE LAYER GROUP (Critical for fitBounds and Clearing) ---
     const vehicleLayer = L.layerGroup().addTo(map); 
     
     const vehicleIcon = L.divIcon({
@@ -328,26 +328,37 @@
         }
     });
 
+    // --- UPDATED SCREENSHOT LOGIC ---
     document.getElementById('screenshotBtn').addEventListener('click', () => {
         const btn = document.getElementById('screenshotBtn');
-        const txt = btn.textContent; btn.textContent='⏳';
-        // Increased robustness for canvas elements
-        html2canvas(document.getElementById('map'), {
-            useCORS: true, 
-            allowTaint: true, 
-            logging: false,
-            ignoreElements: (el) => el.classList.contains('map-tools') || el.classList.contains('map-controls')
-        }).then(canvas => {
-            const link=document.createElement('a'); 
-            link.download=`Map_${Date.now()}.png`; 
-            link.href=canvas.toDataURL(); 
-            link.click(); 
-            btn.textContent=txt;
-        }).catch(err => {
-            console.error("Screenshot failed:", err);
-            btn.textContent=txt;
-            alert("Screenshot failed. Check console.");
-        });
+        const txt = btn.textContent; 
+        btn.textContent='⏳';
+        
+        // 1. Auto-Zoom to fit the track
+        if (vehicleLayer.getLayers().length > 0) {
+            // Padding ensures the path isn't touching the edges
+            map.fitBounds(vehicleLayer.getBounds(), { padding: [50, 50] });
+        }
+
+        // 2. Delay slightly to let the map animation/tiles load
+        setTimeout(() => {
+            html2canvas(document.getElementById('map'), {
+                useCORS: true, 
+                allowTaint: true, 
+                logging: false,
+                ignoreElements: (el) => el.classList.contains('map-tools') || el.classList.contains('map-controls')
+            }).then(canvas => {
+                const link=document.createElement('a'); 
+                link.download=`Map_${Date.now()}.png`; 
+                link.href=canvas.toDataURL(); 
+                link.click(); 
+                btn.textContent=txt;
+            }).catch(err => {
+                console.error("Screenshot failed:", err);
+                btn.textContent=txt;
+                alert("Screenshot failed.");
+            });
+        }, 800); // 800ms delay for zoom to finish
     });
 
     function addPointToPath(latlng, isSpraying) {
@@ -356,6 +367,7 @@
         
         if (sprayStatus !== lastSprayStatus || !currentSegment) {
             if (currentSegment) currentSegment.addLatLng(latlng);
+            // Add polyline to the vehicleLayer Group
             currentSegment = L.polyline([latlng], {color: color, weight: 4, opacity: 0.8}).addTo(vehicleLayer);
             lastSprayStatus = sprayStatus;
         } else {
@@ -442,7 +454,7 @@
         updateSOC(soc);
         document.getElementById('batEnergy').textContent = Number(safeGet(sig, 'BatteryEnergy')||0).toFixed(2);
 
-        let detected = 'UNKNOWN';
+        let detected = 'Idle';
         let bg = '#1e293b';
         if (safeGet(sig,'Field_Mode')==1) { detected="FIELD MODE"; bg="var(--success)"; }
         else if (safeGet(sig,'Travel_Mode')==1) { detected="TRAVEL MODE"; bg="var(--warn)"; }
