@@ -2,304 +2,539 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Vehicle Live Telemetry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Vehicle Fleet Manager</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  
   <style>
     :root{
       --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#06b6d4;
       --success:#16a34a; --warn:#f59e0b; --danger:#dc2626;
       --glass: rgba(255,255,255,0.03);
     }
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial;color:#e6eef6;background:linear-gradient(180deg,#071022 0%, #071a2a 100%);}
-    .app{display:grid;grid-template-columns:1fr 360px;grid-template-rows:56px 1fr;grid-template-areas:"header header" "map sidebar";height:100vh;gap:12px;padding:12px;box-sizing:border-box}
     
-    header{grid-area:header;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--glass);backdrop-filter:blur(6px)}
-    header h1{font-size:18px;margin:0; display: flex; align-items: center; gap: 10px;}
-    
-    select.vehicle-select {
-        background: var(--card);
-        color: white;
-        border: 1px solid var(--muted);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 14px;
-        cursor: pointer;
+    html, body {
+        height: 100%; height: 100dvh; 
+        margin: 0; padding: 0;
+        font-family: Inter, system-ui, Segoe UI, Arial;
+        color: #e6eef6;
+        background: linear-gradient(180deg, #071022 0%, #071a2a 100%);
+        overflow: hidden;
     }
 
-    #map{grid-area:map;border-radius:8px;overflow:hidden}
-    aside{grid-area:sidebar;padding:12px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);box-shadow:0 6px 18px rgba(2,6,23,0.6);display:flex;flex-direction:column;gap:12px}
-    .soc-card{display:flex;flex-direction:column;gap:8px}
-    .soc-bar{height:18px;background:#102234;border-radius:10px;overflow:hidden}
-    .soc-fill{height:100%;width:0%;background:var(--success);transition:width .4s ease,background .4s}
-    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .metric{background:var(--card);padding:10px;border-radius:8px;color:var(--muted);display:flex;flex-direction:column}
-    .metric .value{font-size:18px;color:#fff;font-weight:600}
-    .muted{color:var(--muted);font-size:12px}
-    .footer{margin-top:auto;font-size:12px;color:var(--muted);}
-    .map-controls{position:absolute;bottom:20px;left:20px;display:flex;gap:8px;z-index:1000}
-    .map-btn{padding:10px 14px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;transition:background .2s}
-    .map-btn:hover{background:#0891b2}
+    .app {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        grid-template-rows: 60px 1fr;
+        grid-template-areas: "header header" "map sidebar";
+        height: 100%;
+        gap: 12px;
+        padding: 12px;
+        box-sizing: border-box;
+    }
+    
+    header {
+        grid-area: header;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 12px; border-radius: 8px;
+        background: var(--glass); backdrop-filter: blur(6px);
+        min-height: 56px;
+    }
+    
+    header h1 {
+        font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    select.vehicle-select {
+        background: var(--card); color: white; border: 1px solid var(--muted);
+        padding: 6px 8px; border-radius: 4px; font-size: 14px; cursor: pointer;
+        max-width: 120px;
+    }
+    
+    .reconnect-btn {
+        background: var(--danger); color: white; border: none; width: 36px; height: 36px; border-radius: 6px; 
+        cursor: pointer; font-size: 20px; line-height: 1; font-weight: bold; display: none; align-items: center; justify-content: center;
+    }
+    .reconnect-btn:hover {background: #b91c1c; transform: rotate(45deg);}
+    .reconnect-btn.visible {display: inline-flex;}
+    
+    .diag-btn {
+        background: #374151; color: white; border: 1px solid var(--muted); padding: 10px; border-radius: 6px;
+        cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; margin-top: auto;
+        transition: background 0.2s;
+    }
+    .diag-btn:hover { background: #4b5563; }
+
+    #map {
+        grid-area: map; border-radius: 8px; overflow: hidden; position: relative; 
+        background: #000; z-index: 1;
+        min-height: 300px;
+    }
+    
+    #map.pseudo-fullscreen {
+        position: fixed !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100vw !important; height: 100dvh !important;
+        z-index: 99999 !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+    }
+    
+    aside {
+        grid-area: sidebar; padding: 12px; border-radius: 8px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+        box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+        display: flex; flex-direction: column; gap: 12px; 
+        overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    
+    .card-group {background: var(--card); padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px;}
+    .card-title {font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;}
+    
+    .soc-bar {height: 16px; background: #102234; border-radius: 10px; overflow: hidden; margin-top: 4px;}
+    .soc-fill {height: 100%; width: 0%; background: var(--success); transition: width .4s ease;}
+    
+    .metrics {display: grid; grid-template-columns: 1fr 1fr; gap: 8px;}
+    .metric {background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; color: var(--muted); display: flex; flex-direction: column;}
+    .metric .value {font-size: 15px; color: #fff; font-weight: 600; margin-top: 2px;}
+    
+    .map-controls {position: absolute; bottom: 20px; left: 20px; display: flex; gap: 8px; z-index: 1000;}
+    .map-btn {padding: 8px 12px; background: #06b6d4; color: #fff; border: none; border-radius: 6px; font-weight: 600; font-size: 12px;}
+    
+    .map-tools {position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; z-index: 1000;}
+    .tool-btn {width: 36px; height: 36px; border-radius: 6px; border: none; background: rgba(0,0,0,0.6); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);}
     
     .vehicle-marker { background: transparent; border: none; }
-    
-    @media (max-width:900px){
-      .app{grid-template-columns:1fr;grid-template-areas:"header" "map" "sidebar"}
-      aside{order:3}
-      .map-controls{bottom:12px;left:12px}
-      .map-btn{padding:8px 12px;font-size:12px}
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        grid-template-areas: 
+            "header"
+            "map" 
+            "sidebar";
+        gap: 8px; padding: 8px;
+      }
+      #map { min-height: 40vh; }
+      aside { max-height: 45vh; overflow-y: auto; }
+      header h1 { font-size: 14px; width: 100%; justify-content: space-between; }
     }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+    .modal-overlay.open { display: flex; }
+    .modal-card { background: #111827; width: 90%; max-width: 600px; max-height: 85vh; overflow-y: auto; border-radius: 12px; border: 1px solid #374151; display: flex; flex-direction: column; }
+    .modal-header { padding: 12px 16px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; background: #1f2937; position: sticky; top: 0; }
+    .modal-body { padding: 16px; display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .diag-group { background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; border: 1px solid #374151; }
+    .diag-group h3 { margin: 0 0 8px 0; font-size: 13px; color: var(--accent); border-bottom: 1px solid #374151; padding-bottom: 4px; }
+    .diag-item { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .diag-val { color: #fff; font-family: monospace; font-weight: bold; }
+    .close-modal { background: none; border: none; color: #fff; font-size: 24px; padding: 0 8px; }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
       <h1>
-        Vehicle: 
-        <select id="vehicleSelect" class="vehicle-select">
-            <option value="nandi_1" selected>Nandi 1</option>
-            <option value="nandi_2">Nandi 2</option>
-        </select>
+        <div style="display:flex; align-items:center; gap:6px;">
+            Vehicle: 
+            <select id="vehicleSelect" class="vehicle-select">
+                <option value="nandi_1" selected>Nandi 1</option>
+                <option value="nandi_2">Nandi 2</option>
+                <option value="nandi_3">Nandi 3</option>
+            </select>
+        </div>
       </h1>
-      <div id="status" class="muted">Connecting…</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="reconnectBtn" class="reconnect-btn" title="Reconnect">↻</button>
+        <div id="status" class="muted" style="font-size:11px;">Connecting…</div>
+      </div>
     </header>
 
     <div id="map">
+      <div class="map-tools">
+        <button id="screenshotBtn" class="tool-btn" title="Screenshot">📷</button>
+        <button id="fullscreenBtn" class="tool-btn" title="Fullscreen">⛶</button>
+      </div>
+
       <div class="map-controls">
-        <button id="focusBtn" class="map-btn" title="Zoom to vehicle">📍 Focus</button>
-        <button id="satelliteBtn" class="map-btn" title="Toggle satellite view">🛰️ Satellite</button>
-        <button id="navBtn" class="map-btn" title="Get directions">🚗 Navigate</button>
+        <button id="focusBtn" class="map-btn">📍 Focus</button>
+        <button id="satelliteBtn" class="map-btn">🛰️ Sat</button>
+        <button id="navBtn" class="map-btn">🚗 Nav</button>
       </div>
     </div>
 
     <aside>
-      <div class="soc-card">
-        <div class="muted">State of Charge</div>
+      <div class="card-group">
+        <div class="card-title">Power System</div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="flex:1">
             <div class="soc-bar"><div id="socFill" class="soc-fill"></div></div>
           </div>
-          <div style="width:56px;text-align:right;font-weight:700;color:#fff" id="socText">0%</div>
+          <div style="font-weight:700;color:#fff" id="socText">0%</div>
         </div>
-        <div class="muted" id="socHint">BatteryEnergy: <span id="batteryEnergy">0</span></div>
+        <div class="muted" style="margin-top: 4px; font-size: 11px; text-align: right;">
+            Energy: <span id="batEnergy" style="color: #fff; font-weight: bold;">0.00</span> Ah
+        </div>
+      </div>
+
+      <div class="card-group">
+        <div class="card-title">Configuration</div>
+        <div id="modeBadge" style="padding: 4px; border-radius: 4px; font-size: 13px; font-weight: bold; text-align: center; background: #1e293b; color: #fff;">UNKNOWN</div>
+        <div class="metrics">
+             <div class="metric"><span style="font-size:10px">Gear</span><div class="value" id="gearText">N</div></div>
+             <div class="metric"><span style="font-size:10px">Spray</span><div class="value" id="sprayText">Off</div></div>
+        </div>
       </div>
 
       <div class="metrics">
-        <div class="metric">
-          <div class="muted">Speed</div>
-          <div class="value" id="speed">0 km/h</div>
+        <div class="metric"><span style="font-size:10px">Speed</span><div class="value" id="speed">0 km/h</div></div>
+        <div class="metric"><span style="font-size:10px">RPM</span><div class="value" id="rpm">0</div></div>
+        
+        <div class="metric"><span style="font-size:10px">Total Dist.</span><div class="value" id="gpsDist">0 km</div></div>
+        <div class="metric" style="border: 1px solid rgba(22, 163, 74, 0.4);">
+            <span style="font-size:10px; color:#4ade80">Spray Dist.</span>
+            <div class="value" id="sprayDist" style="color:#4ade80">0 km</div>
         </div>
-        <div class="metric">
-          <div class="muted">RPM</div>
-          <div class="value" id="rpm">0</div>
-        </div>
-        <div class="metric">
-          <div class="muted">Drive Mode</div>
-          <div class="value" id="drive">Neutral</div>
-        </div>
-        <div class="metric">
-          <div class="muted">Odometer</div>
-          <div class="value" id="odo">0 km</div>
-        </div>
-        <div class="metric">
-          <div class="muted">Acceleration</div>
-          <div class="value" id="acc">0</div>
-        </div>
-        <div class="metric">
-          <div class="muted">Spray Pump</div>
-          <div class="value" id="spray">Off</div>
-        </div>
+
+        <div class="metric"><span style="font-size:10px">Odometer</span><div class="value" id="odo">0 km</div></div>
+        <div class="metric"><span style="font-size:10px">Drive</span><div class="value" id="drive">N</div></div>
       </div>
 
-      <div class="footer">Last update: <span id="lastUpdate">—</span></div>
+      <button id="openDiagBtn" class="diag-btn">📋 Open Diagnostics</button>
+
+      <div class="footer" style="font-size:10px; margin-top: 10px; color: var(--muted); text-align: center;">
+        Last update: <span id="lastUpdate">—</span>
+      </div>
     </aside>
+  </div>
+
+  <div id="diagModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div style="font-weight:bold; color:#fff;">Diagnostics</div>
+            <button id="closeDiagBtn" class="close-modal">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="diag-group">
+                <h3>Motor</h3>
+                <div class="diag-item"><span class="diag-label">Temp</span><span class="diag-val" id="d_mtrTemp">-</span></div>
+                <div class="diag-item"><span class="diag-label">RPM</span><span class="diag-val" id="d_mtrRpm">-</span></div>
+                <div class="diag-item"><span class="diag-label">RMS Current</span><span class="diag-val" id="d_rmsCurr">-</span></div>
+                <div class="diag-item"><span class="diag-label">Efficiency</span><span class="diag-val" id="d_mtrEff">-</span></div>
+                <div class="diag-item"><span class="diag-label">Acceleration</span><span class="diag-val" id="d_acc">-</span></div>
+            </div>
+            <div class="diag-group">
+                <h3>Controller</h3>
+                <div class="diag-item"><span class="diag-label">Temp</span><span class="diag-val" id="d_ctrlTemp">-</span></div>
+                <div class="diag-item"><span class="diag-label">Voltage</span><span class="diag-val" id="d_ctrlVolt">-</span></div>
+                <div class="diag-item"><span class="diag-label">Current</span><span class="diag-val" id="d_ctrlCurr">-</span></div>
+                <div class="diag-item"><span class="diag-label">DC Voltage</span><span class="diag-val" id="d_dcVolt">-</span></div>
+            </div>
+            <div class="diag-group">
+                <h3>Battery</h3>
+                <div class="diag-item"><span class="diag-label">Voltage</span><span class="diag-val" id="d_batVolt">-</span></div>
+                <div class="diag-item"><span class="diag-label">Current</span><span class="diag-val" id="d_batCurr">-</span></div>
+                <div class="diag-item"><span class="diag-label">Net Current</span><span class="diag-val" id="d_netCurr">-</span></div>
+                <div class="diag-item"><span class="diag-label">Energy</span><span class="diag-val" id="d_energy">-</span></div>
+                <div class="diag-item"><span class="diag-label">SOC</span><span class="diag-val" id="d_soc">-</span></div>
+            </div>
+            <div class="diag-group">
+                <h3>Hydraulics</h3>
+                <div class="diag-item"><span class="diag-label">Mtr Temp</span><span class="diag-val" id="d_hydMtrTemp">-</span></div>
+                <div class="diag-item"><span class="diag-label">Ctrl Temp</span><span class="diag-val" id="d_hydCtrlTemp">-</span></div>
+                <div class="diag-item"><span class="diag-label">Pump Status</span><span class="diag-val" id="d_pumpStatus">-</span></div>
+                <div class="diag-item"><span class="diag-label">Pump RPM</span><span class="diag-val" id="d_pumpRpm">-</span></div>
+            </div>
+            <div class="diag-group">
+                <h3>System</h3>
+                <div class="diag-item"><span class="diag-label">Slaves</span><span class="diag-val" id="d_slaves">-</span></div>
+                <div class="diag-item"><span class="diag-label">Timestamp</span><span class="diag-val" id="d_ts">-</span></div>
+            </div>
+        </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map', {zoomControl:true}).setView([16.05,80.35],15);
+    // --- UPDATED: PREFER CANVAS ---
+    // preferCanvas: true forces paths to be drawn on canvas, which allows screenshot capture
+    const map = L.map('map', {zoomControl:true, maxZoom: 22, preferCanvas: true}).setView([16.05,80.35],15);
     
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'});
-    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'© Esri'});
+    // 1. OpenStreetMap Layer
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxNativeZoom: 19, 
+        maxZoom: 22, 
+        attribution:'© OpenStreetMap'
+    });
+    
+    // 2. Satellite Layer
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxNativeZoom: 19, 
+        maxZoom: 22, 
+        attribution:'© Esri'
+    });
     
     osmLayer.addTo(map);
+    setTimeout(() => { map.invalidateSize(); }, 500);
+
     let isSatellite = false;
     
-    const vehicleSvg = `
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="#06b6d4" stroke="#ffffff" stroke-width="2" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform-origin: center;">
-        <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
-      </svg>
-    `;
-
+    const vehicleLayer = L.layerGroup().addTo(map); 
+    
     const vehicleIcon = L.divIcon({
       className: 'vehicle-marker',
-      html: `<div id="vehicle-arrow" style="transition: transform 0.3s ease;">${vehicleSvg}</div>`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20]
+      html: `<div id="vehicle-arrow" style="transition: transform 0.3s ease;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="#06b6d4" stroke="#ffffff" stroke-width="2" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform-origin: center;">
+          <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
+        </svg></div>`,
+      iconSize: [40, 40], iconAnchor: [20, 20]
     });
 
     let marker = null; 
-    let polyline = L.polyline([], {color:'#06b6d4', weight: 4, opacity: 0.7}).addTo(map);
     let currentLatLng = null;
     let ws = null;
     let wsKeepAlive = null;
+    let reconnectTimeout = null;
+    let currentSegment = null;
+    let lastSprayStatus = -1; 
+    let dashboardDate = new Date().toLocaleDateString();
+    
+    let selectedVehicle = "";
+    let abortController = null; 
 
-    function setStatus(text, color){
-      const el = document.getElementById('status'); el.textContent = text; if(color) el.style.color = color; else el.style.color='';
+    const modal = document.getElementById('diagModal');
+    document.getElementById('openDiagBtn').onclick = () => modal.classList.add('open');
+    document.getElementById('closeDiagBtn').onclick = () => modal.classList.remove('open');
+    modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('open'); };
+
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        const mapEl = document.getElementById('map');
+        if (mapEl.requestFullscreen) {
+            if (!document.fullscreenElement) mapEl.requestFullscreen();
+            else document.exitFullscreen();
+        } else {
+            if (mapEl.classList.contains('pseudo-fullscreen')) {
+                mapEl.classList.remove('pseudo-fullscreen');
+                setTimeout(() => map.invalidateSize(), 100);
+            } else {
+                mapEl.classList.add('pseudo-fullscreen');
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        }
+    });
+
+    document.getElementById('screenshotBtn').addEventListener('click', () => {
+        const btn = document.getElementById('screenshotBtn');
+        const txt = btn.textContent; btn.textContent='⏳';
+        // Increased robustness for canvas elements
+        html2canvas(document.getElementById('map'), {
+            useCORS: true, 
+            allowTaint: true, 
+            logging: false,
+            ignoreElements: (el) => el.classList.contains('map-tools') || el.classList.contains('map-controls')
+        }).then(canvas => {
+            const link=document.createElement('a'); 
+            link.download=`Map_${Date.now()}.png`; 
+            link.href=canvas.toDataURL(); 
+            link.click(); 
+            btn.textContent=txt;
+        }).catch(err => {
+            console.error("Screenshot failed:", err);
+            btn.textContent=txt;
+            alert("Screenshot failed. Check console.");
+        });
+    });
+
+    function addPointToPath(latlng, isSpraying) {
+        const sprayStatus = isSpraying ? 1 : 0;
+        const color = isSpraying ? '#22c55e' : '#06b6d4';
+        
+        if (sprayStatus !== lastSprayStatus || !currentSegment) {
+            if (currentSegment) currentSegment.addLatLng(latlng);
+            currentSegment = L.polyline([latlng], {color: color, weight: 4, opacity: 0.8}).addTo(vehicleLayer);
+            lastSprayStatus = sprayStatus;
+        } else {
+            currentSegment.addLatLng(latlng);
+        }
     }
 
     function resetDashboard() {
-        if(marker) { map.removeLayer(marker); marker = null; }
-        polyline.setLatLngs([]);
+        vehicleLayer.clearLayers();
+        marker = null;
+        currentSegment = null; 
+        lastSprayStatus = -1; 
         currentLatLng = null;
-        document.getElementById('speed').textContent = "0 km/h";
-        // ... reset other fields ...
+        document.getElementById('gpsDist').textContent = "0 km";
+        document.getElementById('sprayDist').textContent = "0 km";
     }
 
-    async function connectVehicle(vehicleId) {
-        if (ws) {
-            ws.close();
-            clearInterval(wsKeepAlive);
-        }
+    function safeGet(obj, ...keys){ for(const k of keys){ if(obj && (k in obj)) return obj[k]; } return undefined; }
+    function getValueInsensitive(obj, ...keys) { if(!obj) return undefined; for(const k of keys){ if(k in obj) return obj[k]; } const kL=keys.map(k=>k.toLowerCase()); for(const k of Object.keys(obj)){ if(kL.includes(k.toLowerCase())) return obj[k]; } return undefined; }
 
-        setStatus(`Loading history for ${vehicleId}…`, '#fbbf24');
+    function updateDiagnostics(sig, ts) {
+        document.getElementById('d_mtrTemp').textContent = (safeGet(sig,'Tr_Mtr_Temp')||0).toFixed(1) + ' °C';
+        document.getElementById('d_mtrRpm').textContent = safeGet(sig,'Motor_Rpm')||0;
+        document.getElementById('d_rmsCurr').textContent = (safeGet(sig,'Mtr_RMS_currents')||0).toFixed(1) + ' A';
+        document.getElementById('d_mtrEff').textContent = safeGet(sig, 'Motor_ctrl_efficiency') || 0;
+        document.getElementById('d_acc').textContent = safeGet(sig, 'Vehicle_Acceleration') || 0;
+        
+        document.getElementById('d_ctrlTemp').textContent = (safeGet(sig,'Ctrl_Temperature')||0).toFixed(1) + ' °C';
+        document.getElementById('d_ctrlVolt').textContent = (safeGet(sig,'Ctrl_Bat_Voltage')||0).toFixed(1) + ' V';
+        document.getElementById('d_ctrlCurr').textContent = (safeGet(sig,'Ctrl_Bat_Current')||0).toFixed(1) + ' A';
+        document.getElementById('d_dcVolt').textContent = (safeGet(sig, 'DC_voltage') || 0) + ' V';
+        
+        document.getElementById('d_batVolt').textContent = (safeGet(sig,'BatteryVoltage')||0).toFixed(1) + ' V';
+        document.getElementById('d_batCurr').textContent = (safeGet(sig,'Battery_current')||0).toFixed(1) + ' A';
+        document.getElementById('d_netCurr').textContent = (safeGet(sig, 'Current') || 0) + ' A';
+        document.getElementById('d_energy').textContent = safeGet(sig, 'BatteryEnergy') || 0;
+        document.getElementById('d_soc').textContent = (safeGet(sig,'ActualSOCPercentage')||0) + ' %';
+        
+        document.getElementById('d_hydMtrTemp').textContent = (safeGet(sig,'hyd_Motor_temperature')||0) + ' °C';
+        document.getElementById('d_hydCtrlTemp').textContent = (safeGet(sig,'hyd_Controller_temperature')||0) + ' °C';
+        document.getElementById('d_pumpStatus').textContent = (safeGet(sig,'Spray_Pump_Status') == 1) ? 'ON' : 'OFF';
+        document.getElementById('d_pumpRpm').textContent = safeGet(sig,'RPM') || 0;
 
-        // 1. Fetch History First
-        try {
-            const res = await fetch(`/history/${vehicleId}`);
-            const histData = await res.json();
-            if (histData.path && histData.path.length > 0) {
-                polyline.setLatLngs(histData.path);
-                // Center map on the last known point
-                const lastPoint = histData.path[histData.path.length - 1];
-                map.setView(lastPoint, 16);
-                
-                // Add marker at last known location immediately
-                marker = L.marker(lastPoint, {icon: vehicleIcon}).addTo(map);
-                currentLatLng = lastPoint;
-            }
-        } catch (e) {
-            console.error("Failed to load history", e);
-        }
-
-        // 2. Open WebSocket
-        const wsProto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${wsProto}//${location.host}/ws/vehicle/${vehicleId}`);
-
-        ws.addEventListener('open', ()=>{ 
-            setStatus(`Connected (${vehicleId})`, 'lightgreen');
-            wsKeepAlive = setInterval(()=>{ if(ws.readyState===WebSocket.OPEN) ws.send('ping'); }, 30000);
-        });
-
-        ws.addEventListener('close', ()=> setStatus('Disconnected','orange'));
-        ws.addEventListener('error', ()=> setStatus('Error','red'));
-        ws.addEventListener('message', handleMessage);
-    }
-
-    // --- HELPER: Case Insensitive Getter ---
-    function getValueInsensitive(obj, ...keys) {
-      if (!obj) return undefined;
-      for (const k of keys) { if (k in obj) return obj[k]; }
-      const objKeys = Object.keys(obj);
-      const targetKeys = keys.map(k => k.toLowerCase());
-      for (const k of objKeys) { if (targetKeys.includes(k.toLowerCase())) return obj[k]; }
-      return undefined;
-    }
-
-    function safeGet(obj, ...keys){
-      for(const k of keys){ if(obj && (k in obj)) return obj[k]; }
-      return undefined;
+        document.getElementById('d_slaves').textContent = safeGet(sig,'NoOfSlaves') || '-';
+        document.getElementById('d_ts').textContent = ts || '-';
     }
 
     function handleMessage(ev) {
       try{
         const data = JSON.parse(ev.data);
+        if (data.vehicle_id && data.vehicle_id !== selectedVehicle) {
+            console.warn("Ignored cross-talk data from:", data.vehicle_id);
+            return;
+        }
+
+        const today = new Date().toLocaleDateString();
+        if (today !== dashboardDate) { resetDashboard(); dashboardDate = today; }
+
         const gnss = data.gnss || data.location || {};
         const sig = data.signals || data || {};
         const heading = data.vehicle_direction_deg || 0;
+        const ts = data.timestamp || new Date().getTime();
+
+        updateDiagnostics(sig, ts);
 
         const lat = safeGet(gnss,'lat','latitude');
         const lon = safeGet(gnss,'lon','longitude');
-        
-        if(typeof lat==='number' && typeof lon==='number'){
-          const ll=[lat,lon];
-          currentLatLng = ll;
-          
-          if(!marker){ 
-            marker = L.marker(ll, {icon: vehicleIcon}).addTo(map); 
-            map.setView(ll,16); 
-          } else { 
-            marker.setLatLng(ll); 
-          }
-          
-          const arrowEl = document.getElementById('vehicle-arrow');
-          if(arrowEl) arrowEl.style.transform = `rotate(${heading}deg)`;
+        const isSpraying = (safeGet(sig, 'Spray_Pump_Status') == 1);
 
-          polyline.addLatLng(ll);
+        if(typeof lat==='number' && typeof lon==='number'){
+          const ll=[lat,lon]; currentLatLng = ll;
+          if(!marker){ 
+              marker = L.marker(ll, {icon: vehicleIcon}).addTo(vehicleLayer); 
+              map.setView(ll,16); 
+          } else { 
+              marker.setLatLng(ll); 
+          }
+          const arrow = document.getElementById('vehicle-arrow');
+          if(arrow) arrow.style.transform = `rotate(${heading}deg)`;
+          addPointToPath(ll, isSpraying);
         }
 
         const soc = getValueInsensitive(sig, 'RSOC', 'ActualSocPercentage', 'SOC');
-        const speed = safeGet(sig,'Speed','speed');
-        const batteryEnergy = safeGet(sig,'BatteryEnergy','Battery_Energy');
-        const rpm = safeGet(sig,'RPM');
-        const acc = safeGet(sig,'Vehicle_Acceleration','Acceleration');
-        const spray = safeGet(sig,'Spray_Pump_Status');
-        const odo = safeGet(sig,'Main_Odometer','Odometer');
-
         updateSOC(soc);
-        document.getElementById('batteryEnergy').textContent = (batteryEnergy != null) ? Number(batteryEnergy).toFixed(2) : '-';
-        document.getElementById('speed').textContent = Number(speed ?? 0).toFixed(2) + ' km/h';
-        document.getElementById('rpm').textContent = Number(rpm ?? 0).toFixed(2);
-        document.getElementById('acc').textContent = Number(acc ?? 0).toFixed(2);
-        document.getElementById('spray').textContent = (spray==1)?'On':'Off';
-        document.getElementById('odo').textContent = Number(odo ?? 0).toFixed(2) + ' km';
+        document.getElementById('batEnergy').textContent = Number(safeGet(sig, 'BatteryEnergy')||0).toFixed(2);
 
-        let driveMode = 'Unknown';
-        if(safeGet(sig,'Drive_Forward')==1) driveMode='Forward';
-        else if(safeGet(sig,'Drive_Reverse')==1) driveMode='Reverse';
-        else if(safeGet(sig,'Drive_Neutral')==1) driveMode='Neutral';
-        document.getElementById('drive').textContent = driveMode;
+        let detected = 'UNKNOWN';
+        let bg = '#1e293b';
+        if (safeGet(sig,'Field_Mode')==1) { detected="FIELD MODE"; bg="var(--success)"; }
+        else if (safeGet(sig,'Travel_Mode')==1) { detected="TRAVEL MODE"; bg="var(--warn)"; }
+        const badge = document.getElementById('modeBadge');
+        badge.textContent = detected; badge.style.background = bg;
+
+        let gStr = "N";
+        if(safeGet(sig,'Gear_Low')) gStr="L"; if(safeGet(sig,'Gear_High')) gStr="H";
+        document.getElementById('gearText').textContent = gStr;
+        
+        document.getElementById('speed').textContent = Number(safeGet(sig,'Speed')||0).toFixed(1) + ' km/h';
+        document.getElementById('rpm').textContent = safeGet(sig,'RPM')||0;
+        document.getElementById('odo').textContent = Number(safeGet(sig,'Main_Odometer')||0).toFixed(1) + ' km';
+        document.getElementById('sprayText').textContent = isSpraying ? "ON" : "OFF";
+        document.getElementById('sprayText').style.color = isSpraying ? 'var(--success)' : 'var(--muted)';
+        
+        let dStr = "N";
+        if(safeGet(sig,'Drive_Forward')) dStr="D"; if(safeGet(sig,'Drive_Reverse')) dStr="R";
+        document.getElementById('drive').textContent = dStr;
 
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-      }catch(e){ console.warn('invalid payload', e); }
+      }catch(e){}
     }
 
     const vehicleSelect = document.getElementById('vehicleSelect');
-    connectVehicle(vehicleSelect.value);
+    const reconnectBtn = document.getElementById('reconnectBtn');
+    const statusEl = document.getElementById('status');
     
-    vehicleSelect.addEventListener('change', (e) => {
-        resetDashboard();
-        connectVehicle(e.target.value);
-    });
+    function connectVehicle(vid) {
+       if(ws) { ws.close(); clearInterval(wsKeepAlive); }
+       if(reconnectTimeout) clearTimeout(reconnectTimeout);
+       
+       if(abortController) abortController.abort();
+       abortController = new AbortController();
+       
+       selectedVehicle = vid;
+       reconnectBtn.classList.remove('visible');
+       resetDashboard();
+       
+       fetch(`/history/${vid}`, { signal: abortController.signal })
+         .then(r=>r.json())
+         .then(d=>{
+           if(selectedVehicle !== vid) return; 
+           if(d.path && d.path.length){
+               d.path.forEach(pt => {
+                   const ll = [pt[0], pt[1]];
+                   addPointToPath(ll, (pt[2]==1));
+                   currentLatLng = ll;
+               });
+               if(currentLatLng) { 
+                   marker = L.marker(currentLatLng, {icon:vehicleIcon}).addTo(vehicleLayer);
+                   map.setView(currentLatLng, 16); 
+               }
+           }
+           if(d.gps_distance_km) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
+           if(d.spray_distance_km) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
+       }).catch(e => {
+           if (e.name !== 'AbortError') console.error("History fetch failed:", e);
+       });
 
-    document.getElementById('focusBtn').addEventListener('click', ()=>{
-      if(currentLatLng) map.setView(currentLatLng, 17);
-    });
+       const proto = (location.protocol==='https:')?'wss:':'ws:';
+       ws = new WebSocket(`${proto}//${location.host}/ws/vehicle/${vid}`);
+       
+       ws.onopen = () => {
+           statusEl.textContent = `Connected (${vid})`; statusEl.style.color = 'lightgreen';
+           reconnectBtn.classList.remove('visible');
+           wsKeepAlive = setInterval(()=>{ if(ws.readyState===1) ws.send('ping'); }, 30000);
+       };
+       ws.onclose = () => {
+           statusEl.textContent = 'Disconnected'; statusEl.style.color = 'orange';
+           reconnectBtn.classList.add('visible');
+           reconnectTimeout = setTimeout(() => { if(ws.readyState===3) connectVehicle(vid); }, 5000);
+       };
+       ws.onerror = () => { statusEl.textContent = 'Error'; statusEl.style.color = 'red'; reconnectBtn.classList.add('visible'); };
+       ws.onmessage = handleMessage;
+    }
 
-    document.getElementById('navBtn').addEventListener('click', () => {
-      if (currentLatLng) {
-        const [lat, lon] = currentLatLng;
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
-      } else { alert("Waiting for vehicle location data..."); }
-    });
+    vehicleSelect.addEventListener('change', (e)=>{ connectVehicle(e.target.value); });
+    reconnectBtn.addEventListener('click', () => { connectVehicle(vehicleSelect.value); });
+    connectVehicle(vehicleSelect.value);
 
-    document.getElementById('satelliteBtn').addEventListener('click', ()=>{
-      const btn = document.getElementById('satelliteBtn');
-      if(isSatellite){
-        map.removeLayer(satelliteLayer); map.addLayer(osmLayer);
-        btn.style.background = '#06b6d4'; btn.textContent = '🛰️ Satellite';
-        isSatellite = false;
-      } else {
-        map.removeLayer(osmLayer); map.addLayer(satelliteLayer);
-        btn.style.background = '#f59e0b'; btn.textContent = '🗺️ Map';
-        isSatellite = true;
-      }
-    });
+    document.getElementById('focusBtn').onclick = () => { if(currentLatLng) map.setView(currentLatLng, 17); };
+    document.getElementById('navBtn').onclick = () => { if(currentLatLng) window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLatLng[0]},${currentLatLng[1]}`); };
+    document.getElementById('satelliteBtn').onclick = () => {
+        if(isSatellite){ map.removeLayer(satelliteLayer); map.addLayer(osmLayer); isSatellite=false; }
+        else{ map.removeLayer(osmLayer); map.addLayer(satelliteLayer); isSatellite=true; }
+    };
 
     function updateSOC(val){
-      const v = Number(val) || 0; const pct = Math.max(0,Math.min(100,Math.round(v)));
-      const fill = document.getElementById('socFill'); const text = document.getElementById('socText');
-      fill.style.width = pct + '%'; text.textContent = pct + '%';
+      const pct = Math.max(0,Math.min(100,Math.round(Number(val)||0)));
+      const fill = document.getElementById('socFill');
+      fill.style.width = pct + '%'; document.getElementById('socText').textContent = pct + '%';
       if(pct>=75) fill.style.background='var(--success)'; else if(pct>=40) fill.style.background='var(--warn)'; else fill.style.background='var(--danger)';
     }
   </script>

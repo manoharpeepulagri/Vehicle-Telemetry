@@ -2,6 +2,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from fastapi_mqtt import FastMQTT, MQTTConfig
 import json
 import uvicorn
@@ -9,57 +11,142 @@ from pathlib import Path
 from collections import defaultdict
 import csv
 import os
-from datetime import datetime
+import math
+from datetime import datetime, timedelta
 
 app = FastAPI()
+
+# --- 1. CORS Middleware ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
-# --- CSV Logging Setup ---
+# --- Logging Setup ---
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
-def save_to_csv(vehicle_id, data):
-    """Saves telemetry data to a daily CSV file."""
+# Throttling tracker for stress logs
+stress_log_tracker = defaultdict(lambda: datetime.min)
+
+def cleanup_old_logs():
+    """Deletes logs that do not match today's date."""
     try:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        for filename in os.listdir(LOG_DIR):
+            if filename.endswith(".csv") and "stress_events" not in filename:
+                if not filename.startswith(today_str):
+                    try:
+                        os.remove(os.path.join(LOG_DIR, filename))
+                    except: pass
+    except Exception as e:
+        print(f"Cleanup Error: {e}")
+
+def save_to_csv(vehicle_id, data):
+    """Saves telemetry data including spray status."""
+    try:
+        cleanup_old_logs()
+
         today = datetime.now().strftime("%Y-%m-%d")
         filename = f"{LOG_DIR}/{today}_{vehicle_id}.csv"
         file_exists = os.path.isfile(filename)
 
-        # Extract relevant fields (Flattening the JSON)
-        # Use server time if timestamp is missing in payload
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        
         gnss = data.get('gnss', {}) or data.get('location', {})
         signals = data.get('signals', {}) or data
         
-        lat = gnss.get('lat') or gnss.get('latitude')
-        lon = gnss.get('lon') or gnss.get('longitude')
-        
-        # Define the row data
         row = {
-            "timestamp": timestamp,
-            "vehicle_id": vehicle_id,
-            "lat": lat,
-            "lon": lon,
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "lat": gnss.get('lat'),
+            "lon": gnss.get('lon'),
             "speed": signals.get('Speed'),
             "soc": signals.get('RSOC') or signals.get('ActualSocPercentage') or signals.get('SOC'),
             "battery_energy": signals.get('BatteryEnergy'),
-            "rpm": signals.get('RPM'),
+            "current": signals.get('Battery_current'),
+            "motor_temp": signals.get('Tr_Mtr_Temp'),
+            "motor_current": signals.get('Mtr_RMS_currents'),
             "odometer": signals.get('Main_Odometer'),
-            "direction": data.get('vehicle_direction_deg')
+            "gear_low": signals.get('Gear_Low'),
+            "travel_mode": signals.get('Travel_Mode'),
+            "field_mode": signals.get('Field_Mode'),
+            "spray_status": signals.get('Spray_Pump_Status', 0)
         }
 
-        # Write to CSV
         with open(filename, mode='a', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=row.keys())
-            if not file_exists:
-                writer.writeheader()
+            if not file_exists: writer.writeheader()
             writer.writerow(row)
             
     except Exception as e:
         print(f"❌ CSV Error: {e}")
 
-# --- WebSocket connection manager ---
+def check_stress_events(vehicle_id, data):
+    """Logs stress events (throttled)."""
+    try:
+        signals = data.get('signals', {}) or data
+        motor_current = signals.get('Mtr_RMS_currents') or 0
+        motor_temp = signals.get('Tr_Mtr_Temp') or 0
+        
+        if motor_current > 80 or motor_temp > 80:
+            last_log = stress_log_tracker[vehicle_id]
+            if datetime.now() - last_log < timedelta(seconds=60):
+                return
+
+            stress_log_tracker[vehicle_id] = datetime.now()
+            
+            filename = f"{LOG_DIR}/stress_events.csv"
+            file_exists = os.path.isfile(filename)
+            
+            row = {
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "vehicle_id": vehicle_id,
+                "reason": [],
+                "value_current": motor_current,
+                "value_temp": motor_temp
+            }
+            if motor_current > 80: row['reason'].append("High Current")
+            if motor_temp > 80: row['reason'].append("Overheat")
+            row['reason'] = " & ".join(row['reason'])
+
+            with open(filename, mode='a', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=row.keys())
+                if not file_exists: writer.writeheader()
+                writer.writerow(row)
+                print(f"⚠️ STRESS EVENT: {row['reason']}")
+    except: pass
+
+# --- Calculations ---
+def calculate_distances(points):
+    """Calculates total distance AND spray distance."""
+    total_km = 0.0
+    spray_km = 0.0
+    R = 6371  # Earth radius km
+
+    for i in range(len(points) - 1):
+        lat1, lon1, s1 = points[i]
+        lat2, lon2, s2 = points[i+1]
+
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (math.sin(dlat / 2)**2 +
+             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+             math.sin(dlon / 2)**2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        distance = R * c
+
+        if distance > 0.0005: # Noise filter 0.5m
+            total_km += distance
+            if int(float(s1)) == 1: 
+                spray_km += distance
+
+    return round(total_km, 3), round(spray_km, 3)
+
+# --- WebSocket Manager ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = defaultdict(list)
@@ -75,16 +162,16 @@ class ConnectionManager:
 
     async def broadcast_to_vehicle(self, data: dict, vehicle_id: str):
         if vehicle_id not in self.active_connections: return
-        dead = []
         text = json.dumps(data)
+        dead = []
         for ws in self.active_connections[vehicle_id]:
             try: await ws.send_text(text)
-            except Exception: dead.append(ws)
+            except: dead.append(ws)
         for ws in dead: self.disconnect(ws, vehicle_id)
 
 manager = ConnectionManager()
 
-# --- MQTT setup ---
+# --- MQTT Setup ---
 mqtt_config = MQTTConfig(
     host="w8e06e1d.ala.asia-southeast1.emqxsl.com",
     port=8883,
@@ -94,7 +181,6 @@ mqtt_config = MQTTConfig(
     ssl=True,
     client_id="CAN_LOGGER_SERVER_001",
 )
-
 mqtt = FastMQTT(config=mqtt_config)
 mqtt.init_app(app)
 
@@ -108,28 +194,36 @@ async def handle_message(client, topic, payload, qos, properties):
     try:
         parts = topic.split('/')
         if len(parts) >= 2:
-            target_vehicle_id = parts[1]
+            vid = parts[1]
             data = json.loads(payload.decode())
             
-            # 1. Log to CSV
-            save_to_csv(target_vehicle_id, data)
+            # --- CRITICAL FIX: Tag data with vehicle_id ---
+            data['vehicle_id'] = vid 
+            # ----------------------------------------------
             
-            # 2. Broadcast to WebSockets
-            if target_vehicle_id in manager.active_connections:
-                 print(f"📍 MQTT [{target_vehicle_id}]")
-            await manager.broadcast_to_vehicle(data, target_vehicle_id)
+            await run_in_threadpool(save_to_csv, vid, data)
+            await run_in_threadpool(check_stress_events, vid, data)
             
+            await manager.broadcast_to_vehicle(data, vid)
     except Exception as e:
-        print(f"❌ MQTT parse error: {e}")
+        print(f"❌ MQTT Error: {e}")
 
-# --- HTTP + WebSocket endpoints ---
+# --- Endpoints ---
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.websocket("/ws/vehicle/{vehicle_id}")
+async def vehicle_ws(websocket: WebSocket, vehicle_id: str):
+    await manager.connect(websocket, vehicle_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, vehicle_id)
+
 @app.get("/history/{vehicle_id}")
 async def get_history(vehicle_id: str):
-    """Returns the path history (lat, lon) for the selected vehicle today."""
     today = datetime.now().strftime("%Y-%m-%d")
     filename = f"{LOG_DIR}/{today}_{vehicle_id}.csv"
     path = []
@@ -139,26 +233,20 @@ async def get_history(vehicle_id: str):
             with open(filename, mode='r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    # Only add if valid lat/lon exist
                     if row.get('lat') and row.get('lon'):
                         try:
-                            lat = float(row['lat'])
-                            lon = float(row['lon'])
-                            path.append([lat, lon])
-                        except ValueError:
-                            continue
-        except Exception as e:
-            print(f"Error reading history: {e}")
-            
-    return JSONResponse(content={"path": path})
+                            s = row.get('spray_status', 0)
+                            path.append([float(row['lat']), float(row['lon']), float(s)])
+                        except: continue
+        except: pass
+    
+    total, spray = calculate_distances(path)
 
-@app.websocket("/ws/vehicle/{vehicle_id}")
-async def vehicle_ws(websocket: WebSocket, vehicle_id: str):
-    await manager.connect(websocket, vehicle_id)
-    try:
-        while True: await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, vehicle_id)
+    return JSONResponse(content={
+        "path": path,
+        "gps_distance_km": total,
+        "spray_distance_km": spray
+    })
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
