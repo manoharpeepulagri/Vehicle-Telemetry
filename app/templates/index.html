@@ -113,10 +113,7 @@
       .app {
         grid-template-columns: 1fr;
         grid-template-rows: auto 1fr auto;
-        grid-template-areas: 
-            "header"
-            "map" 
-            "sidebar";
+        grid-template-areas: "header" "map" "sidebar";
         gap: 8px; padding: 8px;
       }
       #map { min-height: 40vh; }
@@ -175,37 +172,37 @@
           <div style="flex:1">
             <div class="soc-bar"><div id="socFill" class="soc-fill"></div></div>
           </div>
-          <div style="font-weight:700;color:#fff" id="socText">0%</div>
+          <div style="font-weight:700;color:#fff" id="socText">—</div>
         </div>
         <div class="muted" style="margin-top: 4px; font-size: 11px; text-align: right;">
-            Energy: <span id="batEnergy" style="color: #fff; font-weight: bold;">0.00</span> Ah
+            Energy: <span id="batEnergy" style="color: #fff; font-weight: bold;">—</span> Ah
         </div>
       </div>
 
       <div class="card-group">
         <div class="card-title">Configuration</div>
-        <div id="modeBadge" style="padding: 4px; border-radius: 4px; font-size: 13px; font-weight: bold; text-align: center; background: #1e293b; color: #fff;">UNKNOWN</div>
+        <div id="modeBadge" style="padding: 4px; border-radius: 4px; font-size: 13px; font-weight: bold; text-align: center; background: #1e293b; color: #fff;">IDLE</div>
         <div class="metrics">
-             <div class="metric"><span style="font-size:10px">Gear</span><div class="value" id="gearText">N</div></div>
-             <div class="metric"><span style="font-size:10px">Spray</span><div class="value" id="sprayText">Off</div></div>
+             <div class="metric"><span style="font-size:10px">Gear</span><div class="value" id="gearText">—</div></div>
+             <div class="metric"><span style="font-size:10px">Spray</span><div class="value" id="sprayText">—</div></div>
         </div>
       </div>
 
       <div class="metrics">
-        <div class="metric"><span style="font-size:10px">Speed</span><div class="value" id="speed">0 km/h</div></div>
-        <div class="metric"><span style="font-size:10px">RPM</span><div class="value" id="rpm">0</div></div>
+        <div class="metric"><span style="font-size:10px">Speed</span><div class="value" id="speed">— km/h</div></div>
+        <div class="metric"><span style="font-size:10px">RPM</span><div class="value" id="rpm">—</div></div>
         
-        <div class="metric"><span style="font-size:10px">Total Dist.</span><div class="value" id="gpsDist">0 km</div></div>
+        <div class="metric"><span style="font-size:10px">Total Dist.</span><div class="value" id="gpsDist">— km</div></div>
         <div class="metric" style="border: 1px solid rgba(22, 163, 74, 0.4);">
             <span style="font-size:10px; color:#4ade80">Spray Dist.</span>
-            <div class="value" id="sprayDist" style="color:#4ade80">0 km</div>
+            <div class="value" id="sprayDist" style="color:#4ade80">— km</div>
         </div>
 
-        <div class="metric"><span style="font-size:10px">Odometer</span><div class="value" id="odo">0 km</div></div>
-        <div class="metric"><span style="font-size:10px">Drive</span><div class="value" id="drive">N</div></div>
+        <div class="metric"><span style="font-size:10px">Odometer</span><div class="value" id="odo">— km</div></div>
+        <div class="metric"><span style="font-size:10px">Drive</span><div class="value" id="drive">—</div></div>
       </div>
 
-      <button id="openDiagBtn" class="diag-btn">Open Diagnostics</button>
+      <button id="openDiagBtn" class="diag-btn">Open Diagnostics📋 </button>
 
       <div class="footer" style="font-size:10px; margin-top: 10px; color: var(--muted); text-align: center;">
         Last update: <span id="lastUpdate">—</span>
@@ -222,38 +219,38 @@
         <div class="modal-body">
             <div class="diag-group">
                 <h3>Motor</h3>
-                <div class="diag-item"><span class="diag-label">Temp</span><span class="diag-val" id="d_mtrTemp">-</span></div>
-                <div class="diag-item"><span class="diag-label">RPM</span><span class="diag-val" id="d_mtrRpm">-</span></div>
-                <div class="diag-item"><span class="diag-label">RMS Current</span><span class="diag-val" id="d_rmsCurr">-</span></div>
-                <div class="diag-item"><span class="diag-label">Efficiency</span><span class="diag-val" id="d_mtrEff">-</span></div>
-                <div class="diag-item"><span class="diag-label">Acceleration</span><span class="diag-val" id="d_acc">-</span></div>
+                <div class="diag-item"><span class="diag-label">Temp</span><span class="diag-val" id="d_mtrTemp">—</span></div>
+                <div class="diag-item"><span class="diag-label">RPM</span><span class="diag-val" id="d_mtrRpm">—</span></div>
+                <div class="diag-item"><span class="diag-label">RMS Current</span><span class="diag-val" id="d_rmsCurr">—</span></div>
+                <div class="diag-item"><span class="diag-label">Efficiency</span><span class="diag-val" id="d_mtrEff">—</span></div>
+                <div class="diag-item"><span class="diag-label">Acceleration</span><span class="diag-val" id="d_acc">—</span></div>
             </div>
             <div class="diag-group">
                 <h3>Controller</h3>
-                <div class="diag-item"><span class="diag-label">Temp</span><span class="diag-val" id="d_ctrlTemp">-</span></div>
-                <div class="diag-item"><span class="diag-label">Voltage</span><span class="diag-val" id="d_ctrlVolt">-</span></div>
-                <div class="diag-item"><span class="diag-label">Current</span><span class="diag-val" id="d_ctrlCurr">-</span></div>
-                <div class="diag-item"><span class="diag-label">DC Voltage</span><span class="diag-val" id="d_dcVolt">-</span></div>
+                <div class="diag-item"><span class="diag-label">Temp</span><span class="diag-val" id="d_ctrlTemp">—</span></div>
+                <div class="diag-item"><span class="diag-label">Voltage</span><span class="diag-val" id="d_ctrlVolt">—</span></div>
+                <div class="diag-item"><span class="diag-label">Current</span><span class="diag-val" id="d_ctrlCurr">—</span></div>
+                <div class="diag-item"><span class="diag-label">DC Voltage</span><span class="diag-val" id="d_dcVolt">—</span></div>
             </div>
             <div class="diag-group">
                 <h3>Battery</h3>
-                <div class="diag-item"><span class="diag-label">Voltage</span><span class="diag-val" id="d_batVolt">-</span></div>
-                <div class="diag-item"><span class="diag-label">Current</span><span class="diag-val" id="d_batCurr">-</span></div>
-                <div class="diag-item"><span class="diag-label">Net Current</span><span class="diag-val" id="d_netCurr">-</span></div>
-                <div class="diag-item"><span class="diag-label">Energy</span><span class="diag-val" id="d_energy">-</span></div>
-                <div class="diag-item"><span class="diag-label">SOC</span><span class="diag-val" id="d_soc">-</span></div>
+                <div class="diag-item"><span class="diag-label">Voltage</span><span class="diag-val" id="d_batVolt">—</span></div>
+                <div class="diag-item"><span class="diag-label">Current</span><span class="diag-val" id="d_batCurr">—</span></div>
+                <div class="diag-item"><span class="diag-label">Net Current</span><span class="diag-val" id="d_netCurr">—</span></div>
+                <div class="diag-item"><span class="diag-label">Energy</span><span class="diag-val" id="d_energy">—</span></div>
+                <div class="diag-item"><span class="diag-label">SOC</span><span class="diag-val" id="d_soc">—</span></div>
             </div>
             <div class="diag-group">
                 <h3>Hydraulics</h3>
-                <div class="diag-item"><span class="diag-label">Mtr Temp</span><span class="diag-val" id="d_hydMtrTemp">-</span></div>
-                <div class="diag-item"><span class="diag-label">Ctrl Temp</span><span class="diag-val" id="d_hydCtrlTemp">-</span></div>
-                <div class="diag-item"><span class="diag-label">Pump Status</span><span class="diag-val" id="d_pumpStatus">-</span></div>
-                <div class="diag-item"><span class="diag-label">Pump RPM</span><span class="diag-val" id="d_pumpRpm">-</span></div>
+                <div class="diag-item"><span class="diag-label">Mtr Temp</span><span class="diag-val" id="d_hydMtrTemp">—</span></div>
+                <div class="diag-item"><span class="diag-label">Ctrl Temp</span><span class="diag-val" id="d_hydCtrlTemp">—</span></div>
+                <div class="diag-item"><span class="diag-label">Pump Status</span><span class="diag-val" id="d_pumpStatus">—</span></div>
+                <div class="diag-item"><span class="diag-label">Pump RPM</span><span class="diag-val" id="d_pumpRpm">—</span></div>
             </div>
             <div class="diag-group">
                 <h3>System</h3>
-                <div class="diag-item"><span class="diag-label">Slaves</span><span class="diag-val" id="d_slaves">-</span></div>
-                <div class="diag-item"><span class="diag-label">Timestamp</span><span class="diag-val" id="d_ts">-</span></div>
+                <div class="diag-item"><span class="diag-label">Slaves</span><span class="diag-val" id="d_slaves">—</span></div>
+                <div class="diag-item"><span class="diag-label">Timestamp</span><span class="diag-val" id="d_ts">—</span></div>
             </div>
         </div>
     </div>
@@ -262,28 +259,18 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // --- MAP SETUP ---
-    // preferCanvas: true is ESSENTIAL for html2canvas to capture paths/lines
     const map = L.map('map', {zoomControl:true, maxZoom: 22, preferCanvas: true}).setView([16.05,80.35],15);
     
-    // Layers with zoom support > 19
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxNativeZoom: 19, 
-        maxZoom: 22, 
-        attribution:'© OpenStreetMap'
+        maxNativeZoom: 19, maxZoom: 22, attribution:'© OpenStreetMap'
     });
-    
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxNativeZoom: 19, 
-        maxZoom: 22, 
-        attribution:'© Esri'
+        maxNativeZoom: 19, maxZoom: 22, attribution:'© Esri'
     });
-    
     osmLayer.addTo(map);
     setTimeout(() => { map.invalidateSize(); }, 500);
 
     let isSatellite = false;
-    
-    // --- VEHICLE LAYER GROUP (Critical for fitBounds and Clearing) ---
     const vehicleLayer = L.layerGroup().addTo(map); 
     
     const vehicleIcon = L.divIcon({
@@ -328,37 +315,13 @@
         }
     });
 
-    // --- UPDATED SCREENSHOT LOGIC ---
     document.getElementById('screenshotBtn').addEventListener('click', () => {
         const btn = document.getElementById('screenshotBtn');
-        const txt = btn.textContent; 
-        btn.textContent='⏳';
-        
-        // 1. Auto-Zoom to fit the track
-        if (vehicleLayer.getLayers().length > 0) {
-            // Padding ensures the path isn't touching the edges
-            map.fitBounds(vehicleLayer.getBounds(), { padding: [50, 50] });
-        }
-
-        // 2. Delay slightly to let the map animation/tiles load
-        setTimeout(() => {
-            html2canvas(document.getElementById('map'), {
-                useCORS: true, 
-                allowTaint: true, 
-                logging: false,
-                ignoreElements: (el) => el.classList.contains('map-tools') || el.classList.contains('map-controls')
-            }).then(canvas => {
-                const link=document.createElement('a'); 
-                link.download=`Map_${Date.now()}.png`; 
-                link.href=canvas.toDataURL(); 
-                link.click(); 
-                btn.textContent=txt;
-            }).catch(err => {
-                console.error("Screenshot failed:", err);
-                btn.textContent=txt;
-                alert("Screenshot failed.");
-            });
-        }, 800); // 800ms delay for zoom to finish
+        const txt = btn.textContent; btn.textContent='⏳';
+        html2canvas(document.getElementById('map'), {useCORS:true, allowTaint:true, logging:false, ignoreElements:(el)=>el.classList.contains('map-tools')||el.classList.contains('map-controls')})
+        .then(canvas=>{
+            const link=document.createElement('a'); link.download=`Map_${Date.now()}.png`; link.href=canvas.toDataURL(); link.click(); btn.textContent=txt;
+        });
     });
 
     function addPointToPath(latlng, isSpraying) {
@@ -367,7 +330,6 @@
         
         if (sprayStatus !== lastSprayStatus || !currentSegment) {
             if (currentSegment) currentSegment.addLatLng(latlng);
-            // Add polyline to the vehicleLayer Group
             currentSegment = L.polyline([latlng], {color: color, weight: 4, opacity: 0.8}).addTo(vehicleLayer);
             lastSprayStatus = sprayStatus;
         } else {
@@ -375,56 +337,92 @@
         }
     }
 
-    function resetDashboard() {
+    function clearAllDashboard() {
         vehicleLayer.clearLayers();
         marker = null;
         currentSegment = null; 
         lastSprayStatus = -1; 
         currentLatLng = null;
-        document.getElementById('gpsDist').textContent = "0 km";
-        document.getElementById('sprayDist').textContent = "0 km";
+
+        document.getElementById('socFill').style.width = '0%';
+        document.getElementById('socText').textContent = '—';
+        document.getElementById('batEnergy').textContent = '—';
+        document.getElementById('modeBadge').textContent = 'IDLE';
+        document.getElementById('modeBadge').style.background = '#1e293b';
+        document.getElementById('gearText').textContent = '—';
+        document.getElementById('sprayText').textContent = '—';
+        document.getElementById('sprayText').style.color = 'var(--muted)';
+        document.getElementById('speed').textContent = '— km/h';
+        document.getElementById('rpm').textContent = '—';
+        document.getElementById('gpsDist').textContent = '— km';
+        document.getElementById('sprayDist').textContent = '— km';
+        document.getElementById('odo').textContent = '— km';
+        document.getElementById('drive').textContent = '—';
+        document.getElementById('lastUpdate').textContent = '—';
+
+        document.getElementById('d_mtrTemp').textContent = '—';
+        document.getElementById('d_mtrRpm').textContent = '—';
+        document.getElementById('d_rmsCurr').textContent = '—';
+        document.getElementById('d_mtrEff').textContent = '—';
+        document.getElementById('d_acc').textContent = '—';
+        document.getElementById('d_ctrlTemp').textContent = '—';
+        document.getElementById('d_ctrlVolt').textContent = '—';
+        document.getElementById('d_ctrlCurr').textContent = '—';
+        document.getElementById('d_dcVolt').textContent = '—';
+        document.getElementById('d_batVolt').textContent = '—';
+        document.getElementById('d_batCurr').textContent = '—';
+        document.getElementById('d_netCurr').textContent = '—';
+        document.getElementById('d_energy').textContent = '—';
+        document.getElementById('d_soc').textContent = '—';
+        document.getElementById('d_hydMtrTemp').textContent = '—';
+        document.getElementById('d_hydCtrlTemp').textContent = '—';
+        document.getElementById('d_pumpStatus').textContent = '—';
+        document.getElementById('d_pumpRpm').textContent = '—';
+        document.getElementById('d_slaves').textContent = '—';
+        document.getElementById('d_ts').textContent = '—';
     }
 
     function safeGet(obj, ...keys){ for(const k of keys){ if(obj && (k in obj)) return obj[k]; } return undefined; }
     function getValueInsensitive(obj, ...keys) { if(!obj) return undefined; for(const k of keys){ if(k in obj) return obj[k]; } const kL=keys.map(k=>k.toLowerCase()); for(const k of Object.keys(obj)){ if(kL.includes(k.toLowerCase())) return obj[k]; } return undefined; }
 
     function updateDiagnostics(sig, ts) {
-        document.getElementById('d_mtrTemp').textContent = (safeGet(sig,'Tr_Mtr_Temp')||0).toFixed(1) + ' °C';
-        document.getElementById('d_mtrRpm').textContent = safeGet(sig,'Motor_Rpm')||0;
-        document.getElementById('d_rmsCurr').textContent = (safeGet(sig,'Mtr_RMS_currents')||0).toFixed(1) + ' A';
-        document.getElementById('d_mtrEff').textContent = safeGet(sig, 'Motor_ctrl_efficiency') || 0;
-        document.getElementById('d_acc').textContent = safeGet(sig, 'Vehicle_Acceleration') || 0;
+        document.getElementById('d_mtrTemp').textContent = (safeGet(sig,'Tr_Mtr_Temp')!==null && safeGet(sig,'Tr_Mtr_Temp')!==undefined ? Number(safeGet(sig,'Tr_Mtr_Temp')).toFixed(1) + ' °C' : '—');
+        document.getElementById('d_mtrRpm').textContent = safeGet(sig,'Motor_Rpm')!==null ? safeGet(sig,'Motor_Rpm') : '—';
+        document.getElementById('d_rmsCurr').textContent = (safeGet(sig,'Mtr_RMS_currents')!==null && safeGet(sig,'Mtr_RMS_currents')!==undefined ? Number(safeGet(sig,'Mtr_RMS_currents')).toFixed(1) + ' A' : '—');
+        document.getElementById('d_mtrEff').textContent = safeGet(sig, 'Motor_ctrl_efficiency') !== null ? safeGet(sig, 'Motor_ctrl_efficiency') : '—';
+        document.getElementById('d_acc').textContent = safeGet(sig, 'Vehicle_Acceleration') !== null ? safeGet(sig, 'Vehicle_Acceleration') : '—';
         
-        document.getElementById('d_ctrlTemp').textContent = (safeGet(sig,'Ctrl_Temperature')||0).toFixed(1) + ' °C';
-        document.getElementById('d_ctrlVolt').textContent = (safeGet(sig,'Ctrl_Bat_Voltage')||0).toFixed(1) + ' V';
-        document.getElementById('d_ctrlCurr').textContent = (safeGet(sig,'Ctrl_Bat_Current')||0).toFixed(1) + ' A';
-        document.getElementById('d_dcVolt').textContent = (safeGet(sig, 'DC_voltage') || 0) + ' V';
+        document.getElementById('d_ctrlTemp').textContent = (safeGet(sig,'Ctrl_Temperature')!==null && safeGet(sig,'Ctrl_Temperature')!==undefined ? Number(safeGet(sig,'Ctrl_Temperature')).toFixed(1) + ' °C' : '—');
+        document.getElementById('d_ctrlVolt').textContent = (safeGet(sig,'Ctrl_Bat_Voltage')!==null && safeGet(sig,'Ctrl_Bat_Voltage')!==undefined ? Number(safeGet(sig,'Ctrl_Bat_Voltage')).toFixed(1) + ' V' : '—');
+        document.getElementById('d_ctrlCurr').textContent = (safeGet(sig,'Ctrl_Bat_Current')!==null && safeGet(sig,'Ctrl_Bat_Current')!==undefined ? Number(safeGet(sig,'Ctrl_Bat_Current')).toFixed(1) + ' A' : '—');
+        document.getElementById('d_dcVolt').textContent = (safeGet(sig, 'DC_voltage') !== null ? safeGet(sig, 'DC_voltage') + ' V' : '—');
         
-        document.getElementById('d_batVolt').textContent = (safeGet(sig,'BatteryVoltage')||0).toFixed(1) + ' V';
-        document.getElementById('d_batCurr').textContent = (safeGet(sig,'Battery_current')||0).toFixed(1) + ' A';
-        document.getElementById('d_netCurr').textContent = (safeGet(sig, 'Current') || 0) + ' A';
-        document.getElementById('d_energy').textContent = safeGet(sig, 'BatteryEnergy') || 0;
-        document.getElementById('d_soc').textContent = (safeGet(sig,'ActualSOCPercentage')||0) + ' %';
+        document.getElementById('d_batVolt').textContent = (safeGet(sig,'BatteryVoltage')!==null && safeGet(sig,'BatteryVoltage')!==undefined ? Number(safeGet(sig,'BatteryVoltage')).toFixed(1) + ' V' : '—');
+        document.getElementById('d_batCurr').textContent = (safeGet(sig,'Battery_current')!==null && safeGet(sig,'Battery_current')!==undefined ? Number(safeGet(sig,'Battery_current')).toFixed(1) + ' A' : '—');
+        document.getElementById('d_netCurr').textContent = (safeGet(sig, 'Current') !== null ? safeGet(sig, 'Current') + ' A' : '—');
+        document.getElementById('d_energy').textContent = (safeGet(sig, 'BatteryEnergy') !== null ? safeGet(sig, 'BatteryEnergy') : '—');
+        document.getElementById('d_soc').textContent = (safeGet(sig,'ActualSOCPercentage')!==null && safeGet(sig,'ActualSOCPercentage')!==undefined ? safeGet(sig,'ActualSOCPercentage') + ' %' : '—');
         
-        document.getElementById('d_hydMtrTemp').textContent = (safeGet(sig,'hyd_Motor_temperature')||0) + ' °C';
-        document.getElementById('d_hydCtrlTemp').textContent = (safeGet(sig,'hyd_Controller_temperature')||0) + ' °C';
+        document.getElementById('d_hydMtrTemp').textContent = (safeGet(sig,'hyd_Motor_temperature') !== null ? safeGet(sig,'hyd_Motor_temperature') + ' °C' : '—');
+        document.getElementById('d_hydCtrlTemp').textContent = (safeGet(sig,'hyd_Controller_temperature') !== null ? safeGet(sig,'hyd_Controller_temperature') + ' °C' : '—');
         document.getElementById('d_pumpStatus').textContent = (safeGet(sig,'Spray_Pump_Status') == 1) ? 'ON' : 'OFF';
-        document.getElementById('d_pumpRpm').textContent = safeGet(sig,'RPM') || 0;
+        document.getElementById('d_pumpRpm').textContent = safeGet(sig,'RPM') !== null ? safeGet(sig,'RPM') : '—';
 
-        document.getElementById('d_slaves').textContent = safeGet(sig,'NoOfSlaves') || '-';
-        document.getElementById('d_ts').textContent = ts || '-';
+        document.getElementById('d_slaves').textContent = safeGet(sig,'NoOfSlaves') !== null ? safeGet(sig,'NoOfSlaves') : '—';
+        document.getElementById('d_ts').textContent = ts || '—';
     }
 
     function handleMessage(ev) {
       try{
         const data = JSON.parse(ev.data);
+        
         if (data.vehicle_id && data.vehicle_id !== selectedVehicle) {
             console.warn("Ignored cross-talk data from:", data.vehicle_id);
             return;
         }
 
         const today = new Date().toLocaleDateString();
-        if (today !== dashboardDate) { resetDashboard(); dashboardDate = today; }
+        if (today !== dashboardDate) { clearAllDashboard(); dashboardDate = today; }
 
         const gnss = data.gnss || data.location || {};
         const sig = data.signals || data || {};
@@ -452,31 +450,33 @@
 
         const soc = getValueInsensitive(sig, 'RSOC', 'ActualSocPercentage', 'SOC');
         updateSOC(soc);
-        document.getElementById('batEnergy').textContent = Number(safeGet(sig, 'BatteryEnergy')||0).toFixed(2);
+        document.getElementById('batEnergy').textContent = (safeGet(sig, 'BatteryEnergy')!==null && safeGet(sig, 'BatteryEnergy')!==undefined ? Number(safeGet(sig, 'BatteryEnergy')||0).toFixed(2) : '—');
 
-        let detected = 'Idle';
+        let detected = 'UNKNOWN';
         let bg = '#1e293b';
         if (safeGet(sig,'Field_Mode')==1) { detected="FIELD MODE"; bg="var(--success)"; }
         else if (safeGet(sig,'Travel_Mode')==1) { detected="TRAVEL MODE"; bg="var(--warn)"; }
         const badge = document.getElementById('modeBadge');
         badge.textContent = detected; badge.style.background = bg;
 
-        let gStr = "N";
-        if(safeGet(sig,'Gear_Low')) gStr="L"; if(safeGet(sig,'Gear_High')) gStr="H";
+        let gStr = "—";
+        if(safeGet(sig,'Gear_Low')==1) gStr="L"; if(safeGet(sig,'Gear_High')==1) gStr="H";
         document.getElementById('gearText').textContent = gStr;
         
-        document.getElementById('speed').textContent = Number(safeGet(sig,'Speed')||0).toFixed(1) + ' km/h';
-        document.getElementById('rpm').textContent = safeGet(sig,'RPM')||0;
-        document.getElementById('odo').textContent = Number(safeGet(sig,'Main_Odometer')||0).toFixed(1) + ' km';
+        document.getElementById('speed').textContent = (safeGet(sig,'Speed')!==null && safeGet(sig,'Speed')!==undefined ? Number(safeGet(sig,'Speed')||0).toFixed(1) : '—') + ' km/h';
+        document.getElementById('rpm').textContent = safeGet(sig,'RPM')!==null ? safeGet(sig,'RPM') : '—';
+        document.getElementById('odo').textContent = (safeGet(sig,'Main_Odometer')!==null && safeGet(sig,'Main_Odometer')!==undefined ? Number(safeGet(sig,'Main_Odometer')||0).toFixed(1) : '—') + ' km';
         document.getElementById('sprayText').textContent = isSpraying ? "ON" : "OFF";
         document.getElementById('sprayText').style.color = isSpraying ? 'var(--success)' : 'var(--muted)';
         
-        let dStr = "N";
-        if(safeGet(sig,'Drive_Forward')) dStr="D"; if(safeGet(sig,'Drive_Reverse')) dStr="R";
+        let dStr = "—";
+        if(safeGet(sig,'Drive_Forward')==1) dStr="D"; if(safeGet(sig,'Drive_Reverse')==1) dStr="R";
         document.getElementById('drive').textContent = dStr;
 
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-      }catch(e){}
+      }catch(e){
+        console.error("Message handling error:", e);
+      }
     }
 
     const vehicleSelect = document.getElementById('vehicleSelect');
@@ -484,6 +484,8 @@
     const statusEl = document.getElementById('status');
     
     function connectVehicle(vid) {
+       console.log("Connecting to vehicle:", vid);
+       
        if(ws) { ws.close(); clearInterval(wsKeepAlive); }
        if(reconnectTimeout) clearTimeout(reconnectTimeout);
        
@@ -491,13 +493,20 @@
        abortController = new AbortController();
        
        selectedVehicle = vid;
+       
+       clearAllDashboard();
+       
        reconnectBtn.classList.remove('visible');
-       resetDashboard();
+       statusEl.textContent = 'Loading...';
+       statusEl.style.color = '#f59e0b';
        
        fetch(`/history/${vid}`, { signal: abortController.signal })
          .then(r=>r.json())
          .then(d=>{
-           if(selectedVehicle !== vid) return; 
+           if(selectedVehicle !== vid) {
+             console.log("Vehicle switched, ignoring history data for:", vid);
+             return; 
+           }
            if(d.path && d.path.length){
                d.path.forEach(pt => {
                    const ll = [pt[0], pt[1]];
@@ -509,45 +518,88 @@
                    map.setView(currentLatLng, 16); 
                }
            }
-           if(d.gps_distance_km) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
-           if(d.spray_distance_km) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
+           if(d.gps_distance_km !== undefined) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
+           if(d.spray_distance_km !== undefined) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
+           console.log("History loaded for vehicle:", vid);
        }).catch(e => {
-           if (e.name !== 'AbortError') console.error("History fetch failed:", e);
+           if (e.name !== 'AbortError') {
+             console.error("History fetch failed:", e);
+           }
        });
 
        const proto = (location.protocol==='https:')?'wss:':'ws:';
        ws = new WebSocket(`${proto}//${location.host}/ws/vehicle/${vid}`);
        
        ws.onopen = () => {
-           statusEl.textContent = `Connected (${vid})`; statusEl.style.color = 'lightgreen';
-           reconnectBtn.classList.remove('visible');
-           wsKeepAlive = setInterval(()=>{ if(ws.readyState===1) ws.send('ping'); }, 30000);
+           console.log("WebSocket connected for:", vid);
+           if(selectedVehicle === vid) {
+             statusEl.textContent = `Connected (${vid})`; 
+             statusEl.style.color = 'lightgreen';
+             reconnectBtn.classList.remove('visible');
+             wsKeepAlive = setInterval(()=>{ if(ws && ws.readyState===1) ws.send('ping'); }, 30000);
+           }
        };
        ws.onclose = () => {
-           statusEl.textContent = 'Disconnected'; statusEl.style.color = 'orange';
-           reconnectBtn.classList.add('visible');
-           reconnectTimeout = setTimeout(() => { if(ws.readyState===3) connectVehicle(vid); }, 5000);
+           console.log("WebSocket closed for:", vid);
+           if(selectedVehicle === vid) {
+             statusEl.textContent = 'Disconnected'; 
+             statusEl.style.color = 'orange';
+             reconnectBtn.classList.add('visible');
+             reconnectTimeout = setTimeout(() => { if(selectedVehicle === vid && ws && ws.readyState===3) connectVehicle(vid); }, 5000);
+           }
        };
-       ws.onerror = () => { statusEl.textContent = 'Error'; statusEl.style.color = 'red'; reconnectBtn.classList.add('visible'); };
+       ws.onerror = (error) => { 
+           console.error("WebSocket error for:", vid, error);
+           if(selectedVehicle === vid) {
+             statusEl.textContent = 'Error'; 
+             statusEl.style.color = 'red'; 
+             reconnectBtn.classList.add('visible'); 
+           }
+       };
        ws.onmessage = handleMessage;
     }
 
-    vehicleSelect.addEventListener('change', (e)=>{ connectVehicle(e.target.value); });
-    reconnectBtn.addEventListener('click', () => { connectVehicle(vehicleSelect.value); });
+    vehicleSelect.addEventListener('change', (e)=>{
+      console.log("Vehicle selection changed to:", e.target.value);
+      connectVehicle(e.target.value);
+    });
+    
+    reconnectBtn.addEventListener('click', () => { 
+      console.log("Manual reconnect triggered for:", vehicleSelect.value);
+      connectVehicle(vehicleSelect.value); 
+    });
+    
     connectVehicle(vehicleSelect.value);
 
-    document.getElementById('focusBtn').onclick = () => { if(currentLatLng) map.setView(currentLatLng, 17); };
-    document.getElementById('navBtn').onclick = () => { if(currentLatLng) window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLatLng[0]},${currentLatLng[1]}`); };
+    document.getElementById('focusBtn').onclick = () => { 
+      if(currentLatLng) map.setView(currentLatLng, 17); 
+    };
+    
+    document.getElementById('navBtn').onclick = () => { 
+      if(currentLatLng) window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentLatLng[0]},${currentLatLng[1]}`); 
+    };
+    
     document.getElementById('satelliteBtn').onclick = () => {
-        if(isSatellite){ map.removeLayer(satelliteLayer); map.addLayer(osmLayer); isSatellite=false; }
-        else{ map.removeLayer(osmLayer); map.addLayer(satelliteLayer); isSatellite=true; }
+        if(isSatellite){ 
+          map.removeLayer(satelliteLayer); 
+          map.addLayer(osmLayer); 
+          isSatellite=false; 
+        }
+        else{ 
+          map.removeLayer(osmLayer); 
+          map.addLayer(satelliteLayer); 
+          isSatellite=true; 
+        }
     };
 
     function updateSOC(val){
       const pct = Math.max(0,Math.min(100,Math.round(Number(val)||0)));
       const fill = document.getElementById('socFill');
-      fill.style.width = pct + '%'; document.getElementById('socText').textContent = pct + '%';
-      if(pct>=75) fill.style.background='var(--success)'; else if(pct>=40) fill.style.background='var(--warn)'; else fill.style.background='var(--danger)';
+      fill.style.width = pct + '%'; 
+      document.getElementById('socText').textContent = pct + '%';
+      if(pct>=75) fill.style.background='var(--success)'; 
+      else if(pct>=40) fill.style.background='var(--warn)'; 
+      else fill.style.background='var(--danger)';
     }
   </script>
 </body>

@@ -31,40 +31,28 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Trackers
+# Throttling tracker for stress logs
 stress_log_tracker = defaultdict(lambda: datetime.min)
-last_cleanup_date = None  # NEW: Optimizes the midnight reset check
 
 def cleanup_old_logs():
-    """
-    Deletes logs that do not match today's date.
-    Running this resets the CSV data for the new day.
-    """
+    """Deletes logs that do not match today's date."""
     try:
         today_str = datetime.now().strftime("%Y-%m-%d")
-        print(f"🧹 Performing Daily Cleanup for {today_str}...")
         for filename in os.listdir(LOG_DIR):
             if filename.endswith(".csv") and "stress_events" not in filename:
                 if not filename.startswith(today_str):
                     try:
                         os.remove(os.path.join(LOG_DIR, filename))
-                        print(f"   - Deleted old log: {filename}")
-                    except Exception as e:
-                        print(f"   - Failed to delete {filename}: {e}")
+                    except: pass
     except Exception as e:
         print(f"Cleanup Error: {e}")
 
 def save_to_csv(vehicle_id, data):
-    """Saves telemetry data. Triggers reset if date changes."""
-    global last_cleanup_date
+    """Saves telemetry data including spray status."""
     try:
-        # --- NEW: Optimized Midnight Reset ---
-        today = datetime.now().strftime("%Y-%m-%d")
-        if last_cleanup_date != today:
-            cleanup_old_logs()
-            last_cleanup_date = today
-        # -------------------------------------
+        cleanup_old_logs()
 
+        today = datetime.now().strftime("%Y-%m-%d")
         filename = f"{LOG_DIR}/{today}_{vehicle_id}.csv"
         file_exists = os.path.isfile(filename)
 
@@ -129,12 +117,15 @@ def check_stress_events(vehicle_id, data):
                 writer = csv.DictWriter(f, fieldnames=row.keys())
                 if not file_exists: writer.writeheader()
                 writer.writerow(row)
-                print(f"⚠️ STRESS EVENT: {row['reason']}")
+                print(f"⚠️ STRESS EVENT [{vehicle_id}]: {row['reason']}")
     except: pass
 
 # --- Calculations ---
 def calculate_distances(points):
-    """Calculates total distance AND spray distance."""
+    """
+    Calculates total distance AND spray distance.
+    points: list of [lat, lon, spray_status]
+    """
     total_km = 0.0
     spray_km = 0.0
     R = 6371  # Earth radius km
@@ -153,8 +144,11 @@ def calculate_distances(points):
 
         if distance > 0.0005: # Noise filter 0.5m
             total_km += distance
-            if int(float(s1)) == 1: 
-                spray_km += distance
+            try:
+                if int(float(s1)) == 1: 
+                    spray_km += distance
+            except:
+                pass
 
     return round(total_km, 3), round(spray_km, 3)
 
@@ -166,20 +160,26 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, vehicle_id: str):
         await websocket.accept()
         self.active_connections[vehicle_id].append(websocket)
+        print(f"✅ WebSocket connected for vehicle: {vehicle_id}")
 
     def disconnect(self, websocket: WebSocket, vehicle_id: str):
         if vehicle_id in self.active_connections:
             if websocket in self.active_connections[vehicle_id]:
                 self.active_connections[vehicle_id].remove(websocket)
+                print(f"❌ WebSocket disconnected for vehicle: {vehicle_id}")
 
     async def broadcast_to_vehicle(self, data: dict, vehicle_id: str):
-        if vehicle_id not in self.active_connections: return
+        if vehicle_id not in self.active_connections: 
+            return
         text = json.dumps(data)
         dead = []
         for ws in self.active_connections[vehicle_id]:
-            try: await ws.send_text(text)
-            except: dead.append(ws)
-        for ws in dead: self.disconnect(ws, vehicle_id)
+            try: 
+                await ws.send_text(text)
+            except: 
+                dead.append(ws)
+        for ws in dead: 
+            self.disconnect(ws, vehicle_id)
 
 manager = ConnectionManager()
 
@@ -209,12 +209,15 @@ async def handle_message(client, topic, payload, qos, properties):
             vid = parts[1]
             data = json.loads(payload.decode())
             
-            # Tag data for frontend filtering
-            data['vehicle_id'] = vid 
+            # CRITICAL: Stamp data with vehicle_id for filtering
+            data['vehicle_id'] = vid
+            
+            print(f"📨 Message from {vid}: {list(data.keys())}")
             
             await run_in_threadpool(save_to_csv, vid, data)
             await run_in_threadpool(check_stress_events, vid, data)
             
+            # Broadcast to all connected clients of this vehicle
             await manager.broadcast_to_vehicle(data, vid)
     except Exception as e:
         print(f"❌ MQTT Error: {e}")
@@ -232,6 +235,9 @@ async def vehicle_ws(websocket: WebSocket, vehicle_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, vehicle_id)
+    except Exception as e:
+        print(f"❌ WebSocket Error: {e}")
+        manager.disconnect(websocket, vehicle_id)
 
 @app.get("/history/{vehicle_id}")
 async def get_history(vehicle_id: str):
@@ -246,11 +252,16 @@ async def get_history(vehicle_id: str):
                 for row in reader:
                     if row.get('lat') and row.get('lon'):
                         try:
-                            s = row.get('spray_status', 0)
-                            path.append([float(row['lat']), float(row['lon']), float(s)])
-                        except: continue
-        except: pass
+                            lat = float(row['lat'])
+                            lon = float(row['lon'])
+                            spray = float(row.get('spray_status', 0))
+                            path.append([lat, lon, spray])
+                        except: 
+                            continue
+        except Exception as e:
+            print(f"❌ History read error: {e}")
     
+    # Calculate Distances
     total, spray = calculate_distances(path)
 
     return JSONResponse(content={
