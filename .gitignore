@@ -21,3 +21,5 @@ wheels/
 *.egg
 .env
 .DS_Store
+.vscode/
+.idea/
