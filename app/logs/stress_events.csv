@@ -1505,3 +1505,5 @@ date,time,vehicle_id,reason,value_current,value_temp
 2026-01-02,14:24:29,nandi_3,High Current,1738.6000000000001,-2015.4
 2026-01-02,14:25:29,nandi_3,High Current,168.5,-1854.2
 2026-01-02,14:26:29,nandi_3,High Current & Overheat,2781.1000000000004,1950.7
+2026-01-02,14:51:24,nandi_2,High Current,82.80000000000001,68.8
+2026-01-02,14:52:41,nandi_2,High Current,82.7,70.4

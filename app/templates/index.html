@@ -102,9 +102,6 @@
     .card-group {background: var(--card); padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px;}
     .card-title {font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;}
     
-    .soc-bar {height: 16px; background: #102234; border-radius: 10px; overflow: hidden; margin-top: 4px;}
-    .soc-fill {height: 100%; width: 0%; background: var(--success); transition: width .4s ease;}
-    
     .metrics {display: grid; grid-template-columns: 1fr 1fr; gap: 8px;}
     .metric {background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; color: var(--muted); display: flex; flex-direction: column;}
     .metric .value {font-size: 15px; color: #fff; font-weight: 600; margin-top: 2px;}
@@ -120,79 +117,27 @@
     .vehicle-marker { background: transparent; border: none; }
 
     /* Status Indicator Animations */
-    @keyframes blink-green {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    @keyframes blink-orange {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    @keyframes blink-red {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
+    @keyframes blink-green { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes blink-orange { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes blink-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
     .status-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px;
+      border-radius: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
     }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
+    .status-indicator.connected { background: rgba(22, 163, 74, 0.2); color: #4ade80; border: 1px solid rgba(22, 163, 74, 0.4); }
+    .status-indicator.connected .status-dot { background: #4ade80; animation: blink-green 1.5s infinite; }
+    
+    .status-indicator.disconnected { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .status-indicator.disconnected .status-dot { background: #fbbf24; animation: blink-orange 1.5s infinite; }
+    
+    .status-indicator.offline { background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.4); }
+    .status-indicator.offline .status-dot { background: #f87171; animation: blink-red 1.5s infinite; }
 
-    .status-indicator.connected {
-      background: rgba(22, 163, 74, 0.2);
-      color: #4ade80;
-      border: 1px solid rgba(22, 163, 74, 0.4);
-    }
-    .status-indicator.connected .status-dot {
-      background: #4ade80;
-      animation: blink-green 1.5s infinite;
-    }
-
-    .status-indicator.disconnected {
-      background: rgba(245, 158, 11, 0.2);
-      color: #fbbf24;
-      border: 1px solid rgba(245, 158, 11, 0.4);
-    }
-    .status-indicator.disconnected .status-dot {
-      background: #fbbf24;
-      animation: blink-orange 1.5s infinite;
-    }
-
-    .status-indicator.offline {
-      background: rgba(220, 38, 38, 0.2);
-      color: #f87171;
-      border: 1px solid rgba(220, 38, 38, 0.4);
-    }
-    .status-indicator.offline .status-dot {
-      background: #f87171;
-      animation: blink-red 1.5s infinite;
-    }
-
-    .status-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .status-time {
-      font-size: 10px;
-      opacity: 0.8;
-      font-weight: 400;
-    }
+    .status-info { display: flex; flex-direction: column; gap: 2px; }
+    .status-time { font-size: 10px; opacity: 0.8; font-weight: 400; }
 
     @media (max-width: 900px) {
       .app {
@@ -204,7 +149,6 @@
       #map { min-height: 40vh; }
       aside { max-height: 45vh; overflow-y: auto; }
       header h1 { font-size: 14px; width: 100%; justify-content: space-between; }
-      .status-indicator { font-size: 10px; padding: 4px 8px; }
     }
 
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
@@ -259,30 +203,30 @@
     <aside>
       <div class="card-group">
         <div class="card-title">Power System</div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="flex:1">
-            <div class="soc-bar"><div id="socFill" class="soc-fill"></div></div>
-          </div>
-          <div style="font-weight:700;color:#fff" id="socText">–</div>
-        </div>
         
-        <div class="muted" style="margin-top: 4px; font-size: 11px; text-align: right;">
-            Energy: <span id="batEnergy" style="color: #fff; font-weight: bold;">–</span> Wh
+        <div style="text-align: center; margin-bottom: 8px;">
+            <div style="font-size: 32px; font-weight: 800; color: #fff; line-height: 1;">
+               <span id="socText">--</span><span style="font-size: 16px; color: var(--muted); font-weight: normal;">%</span>
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+               Total Energy: <span id="batEnergy" style="color: #fff; font-weight: 600;">--</span> Wh
+            </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
-          <div class="metric" style="padding: 4px; text-align: center;">
-            <span style="font-size:9px; color: var(--muted);">Pack 1</span>
-            <div class="value" id="socP1" style="font-size: 12px;">–</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+          
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; text-align: center;">
+             <div style="font-size: 9px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px;">Pack 1</div>
+             <div class="value" id="socP1" style="font-size: 18px; font-weight: 700; color: #fff;">--</div>
+             <div style="font-size: 11px; color: var(--accent); margin-top: 2px; font-weight: 500;" id="energyP1">-- Wh</div>
           </div>
-          <div class="metric" style="padding: 4px; text-align: center;">
-            <span style="font-size:9px; color: var(--muted);">Pack 2</span>
-            <div class="value" id="socP2" style="font-size: 12px;">–</div>
+
+          <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; text-align: center;">
+             <div style="font-size: 9px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px;">Pack 2</div>
+             <div class="value" id="socP2" style="font-size: 18px; font-weight: 700; color: #fff;">--</div>
+             <div style="font-size: 11px; color: var(--accent); margin-top: 2px; font-weight: 500;" id="energyP2">-- Wh</div>
           </div>
-          <div class="metric" style="padding: 4px; text-align: center;">
-            <span style="font-size:9px; color: var(--muted);">Actual</span>
-            <div class="value" id="socActual" style="font-size: 12px;">–</div>
-          </div>
+
         </div>
       </div>
 
@@ -447,11 +391,13 @@
             rmsCurr: '–',
             batVolt: '–',
             batCurr: '–',
-            // New tracked states for Battery
+            // Tracked states for Battery Packs
             socP1: '–',
             socP2: '–',
             socActual: '–',
-            // New tracked states
+            energyP1: '– Wh',
+            energyP2: '– Wh',
+            // Tracked states
             gear: '–',
             drive: '–',
             spray: 'OFF',
@@ -600,7 +546,7 @@ function addPointToPath(latlng, isSpraying, isFieldMode) {
             // Calculate distance in meters
             const dist = haversineDistance(lastPathPoint[0], lastPathPoint[1], latlng[0], latlng[1]);
             
-            // IF DISTANCE > 2 METERS: SKIP DRAWING LINE (break segment)
+            // IF DISTANCE > 30 METERS: SKIP DRAWING LINE (break segment)
             if (dist > 30.0) {
                 currentSegment = null; // Forces a new line strip to start
                 lastPathPoint = latlng; // Update last point so we can resume from here
@@ -666,15 +612,18 @@ function addPointToPath(latlng, isSpraying, isFieldMode) {
             batCurr: '–',
             socP1: '–',
             socP2: '–',
-            socActual: '–'
+            socActual: '–',
+            energyP1: '– Wh',
+            energyP2: '– Wh'
         };
 
-        document.getElementById('socFill').style.width = '0%';
+        // Reset Display Fields
         document.getElementById('socText').textContent = '–';
         document.getElementById('batEnergy').textContent = '–';
         document.getElementById('socP1').textContent = '–';
+        document.getElementById('energyP1').textContent = '– Wh';
         document.getElementById('socP2').textContent = '–';
-        document.getElementById('socActual').textContent = '–';
+        document.getElementById('energyP2').textContent = '– Wh';
 
         document.getElementById('modeBadge').textContent = 'IDLE';
         document.getElementById('modeBadge').style.background = '#1e293b';
@@ -830,21 +779,27 @@ function handleMessage(ev) {
 
             // 3. Update Dashboard Cards (Sample & Hold)
             
-            // SOC (Existing Bar Logic)
-            const soc = safeGet(sig, 'RSOC', 'ActualSocPercentage', 'SOC', 'ActualSOCPercentage');
-            if (soc !== null && soc !== undefined) updateSOC(soc);
+            // Total SOC (displayed as big text)
+            const socTotal = safeGet(sig, 'ActualSOCPercentage', 'SOC');
+            if (socTotal !== null && socTotal !== undefined) {
+                document.getElementById('socText').textContent = Math.round(socTotal);
+            }
 
-            // --- NEW: Detailed SOC Values ---
+            // PACK 1 Logic
             updateIfValid('socP1', safeGet(sig, 'pack1_socpercentage'), v => v + '%');
             document.getElementById('socP1').textContent = lastDataValues.socP1;
 
+            updateIfValid('energyP1', safeGet(sig, 'pack1_energy'), v => v + ' Wh');
+            document.getElementById('energyP1').textContent = lastDataValues.energyP1;
+
+            // PACK 2 Logic
             updateIfValid('socP2', safeGet(sig, 'pack2_socpercentage'), v => v + '%');
             document.getElementById('socP2').textContent = lastDataValues.socP2;
 
-            updateIfValid('socActual', safeGet(sig, 'ActualSOCPercentage'), v => v + '%');
-            document.getElementById('socActual').textContent = lastDataValues.socActual;
-            // --------------------------------
-
+            updateIfValid('energyP2', safeGet(sig, 'pack2_energy'), v => v + ' Wh');
+            document.getElementById('energyP2').textContent = lastDataValues.energyP2;
+            
+            // Total Energy
             updateIfValid('batEnergy', safeGet(sig, 'BatteryEnergy'), v => Number(v).toFixed(2));
             document.getElementById('batEnergy').textContent = lastDataValues.batEnergy;
 
@@ -941,7 +896,9 @@ function handleMessage(ev) {
             batCurr: '–',
             socP1: '–',
             socP2: '–',
-            socActual: '–'
+            socActual: '–',
+            energyP1: '– Wh',
+            energyP2: '– Wh'
         };
         
         // FETCH HISTORY
@@ -1009,16 +966,6 @@ function handleMessage(ev) {
         if(isSatellite){ map.removeLayer(satelliteLayer); map.addLayer(osmLayer); isSatellite=false; }
         else{ map.removeLayer(osmLayer); map.addLayer(satelliteLayer); isSatellite=true; }
     };
-
-    function updateSOC(val){
-      const pct = Math.max(0,Math.min(100,Math.round(Number(val)||0)));
-      const fill = document.getElementById('socFill');
-      fill.style.width = pct + '%'; 
-      document.getElementById('socText').textContent = pct + '%';
-      if(pct>=75) fill.style.background='var(--success)'; 
-      else if(pct>=40) fill.style.background='var(--warn)'; 
-      else fill.style.background='var(--danger)';
-    }
 
 // --- LAND MEASUREMENT SYSTEM ---
     let isLandMeasuring = false;
