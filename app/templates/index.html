@@ -902,39 +902,43 @@ function handleMessage(ev) {
         };
         
         // FETCH HISTORY
-        fetch(`/history/${vid}`, { signal: abortController.signal })
-          .then(r=>r.json())
-          .then(d=>{
-            if(selectedVehicle !== vid) return;
-            if(d.path && d.path.length){
-                d.path.forEach(pt => {
-                    const ll = [pt[0], pt[1]];
-                    
-                    // pt[2] = spray_pump_status (1 = spraying, 0 = not spraying)
-                    const isSpraying = (pt[2] == 1);
-                    
-                    // FIX: Use pt[3] for Field Mode (1 = Field, 0 = Travel)
-                    // Your Python sends: [lat, lon, spray, field_mode]
-                    const isFieldMode = (pt[3] == 1); 
+// FIND THIS SECTION INSIDE connectVehicle function in index.html
 
-                    addPointToPath(ll, isSpraying, isFieldMode);
-                    
-                    // Update marker position without drawing line if it jumped
-                    currentLatLng = ll;
-                });
-                
-                if(currentLatLng) { 
-                    marker = L.marker(currentLatLng, {icon:vehicleIcon}).addTo(vehicleLayer);
-                    map.setView(currentLatLng, 16); 
-                }
-            }
-            if(d.gps_distance_km !== undefined) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
-            if(d.spray_distance_km !== undefined) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
-        }).catch(e => {
-            if (e.name !== 'AbortError') console.error("History fetch failed:", e);
-        });
+      fetch(`/history/${vid}`, { signal: abortController.signal })
+        .then(r => r.json())
+        .then(d => {
+          if (selectedVehicle !== vid) return;
+          
+          // Process the path
+          if (d.path && d.path.length) {
+              d.path.forEach(pt => {
+                  const ll = [pt[0], pt[1]];
+                  const isSpraying = (pt[2] == 1);
+                  const isFieldMode = (pt[3] == 1);
+                  addPointToPath(ll, isSpraying, isFieldMode);
+                  currentLatLng = ll;
+              });
 
-        // ... (Rest of WebSocket connection code remains same) ...
+              // --- FIX STARTS HERE ---
+              if (currentLatLng) {
+                  if (!marker) {
+                      // Only create if it doesn't exist yet
+                      marker = L.marker(currentLatLng, {icon: vehicleIcon}).addTo(vehicleLayer);
+                      map.setView(currentLatLng, 16);
+                  } else {
+                      // If WebSocket created it already, just move it to the latest history point
+                      marker.setLatLng(currentLatLng);
+                  }
+              }
+              // --- FIX ENDS HERE ---
+          }
+          
+          if (d.gps_distance_km !== undefined) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
+          if (d.spray_distance_km !== undefined) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
+      }).catch(e => {
+          if (e.name !== 'AbortError') console.error("History fetch failed:", e);
+      });
+
         const proto = (location.protocol==='https:')?'wss:':'ws:';
         ws = new WebSocket(`${proto}//${location.host}/ws/vehicle/${vid}`);
         
