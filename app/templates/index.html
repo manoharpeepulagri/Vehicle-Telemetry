@@ -265,8 +265,24 @@
           </div>
           <div style="font-weight:700;color:#fff" id="socText">–</div>
         </div>
+        
         <div class="muted" style="margin-top: 4px; font-size: 11px; text-align: right;">
             Energy: <span id="batEnergy" style="color: #fff; font-weight: bold;">–</span> Wh
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+          <div class="metric" style="padding: 4px; text-align: center;">
+            <span style="font-size:9px; color: var(--muted);">Pack 1</span>
+            <div class="value" id="socP1" style="font-size: 12px;">–</div>
+          </div>
+          <div class="metric" style="padding: 4px; text-align: center;">
+            <span style="font-size:9px; color: var(--muted);">Pack 2</span>
+            <div class="value" id="socP2" style="font-size: 12px;">–</div>
+          </div>
+          <div class="metric" style="padding: 4px; text-align: center;">
+            <span style="font-size:9px; color: var(--muted);">Actual</span>
+            <div class="value" id="socActual" style="font-size: 12px;">–</div>
+          </div>
         </div>
       </div>
 
@@ -289,7 +305,7 @@
             <div class="value" id="sprayDist" style="color:#4ade80">– km</div>
         </div>
 
-        <div class="metric"><span style="font-size:10px">Odometer</span><div class="value" id="odo">– km</div></div>
+        <div class="metric"><span style="font-size:10px">Odometer</span><div class="value" id="odo">– Hrs</div></div>
         <div class="metric"><span style="font-size:10px">Drive</span><div class="value" id="drive">–</div></div>
       </div>
 
@@ -431,6 +447,10 @@
             rmsCurr: '–',
             batVolt: '–',
             batCurr: '–',
+            // New tracked states for Battery
+            socP1: '–',
+            socP2: '–',
+            socActual: '–',
             // New tracked states
             gear: '–',
             drive: '–',
@@ -643,12 +663,19 @@ function addPointToPath(latlng, isSpraying, isFieldMode) {
             ctrlTemp: '–',
             rmsCurr: '–',
             batVolt: '–',
-            batCurr: '–'
+            batCurr: '–',
+            socP1: '–',
+            socP2: '–',
+            socActual: '–'
         };
 
         document.getElementById('socFill').style.width = '0%';
         document.getElementById('socText').textContent = '–';
         document.getElementById('batEnergy').textContent = '–';
+        document.getElementById('socP1').textContent = '–';
+        document.getElementById('socP2').textContent = '–';
+        document.getElementById('socActual').textContent = '–';
+
         document.getElementById('modeBadge').textContent = 'IDLE';
         document.getElementById('modeBadge').style.background = '#1e293b';
         document.getElementById('gearText').textContent = '–';
@@ -803,9 +830,20 @@ function handleMessage(ev) {
 
             // 3. Update Dashboard Cards (Sample & Hold)
             
-            // SOC
+            // SOC (Existing Bar Logic)
             const soc = safeGet(sig, 'RSOC', 'ActualSocPercentage', 'SOC', 'ActualSOCPercentage');
             if (soc !== null && soc !== undefined) updateSOC(soc);
+
+            // --- NEW: Detailed SOC Values ---
+            updateIfValid('socP1', safeGet(sig, 'pack1_socpercentage'), v => v + '%');
+            document.getElementById('socP1').textContent = lastDataValues.socP1;
+
+            updateIfValid('socP2', safeGet(sig, 'pack2_socpercentage'), v => v + '%');
+            document.getElementById('socP2').textContent = lastDataValues.socP2;
+
+            updateIfValid('socActual', safeGet(sig, 'ActualSOCPercentage'), v => v + '%');
+            document.getElementById('socActual').textContent = lastDataValues.socActual;
+            // --------------------------------
 
             updateIfValid('batEnergy', safeGet(sig, 'BatteryEnergy'), v => Number(v).toFixed(2));
             document.getElementById('batEnergy').textContent = lastDataValues.batEnergy;
@@ -847,7 +885,7 @@ function handleMessage(ev) {
             updateIfValid('rpm', safeGet(sig, 'RPM'));
             document.getElementById('rpm').textContent = lastDataValues.rpm;
 
-            updateIfValid('odo', safeGet(sig, 'Main_Odometer'), v => Number(v).toFixed(1) + ' km');
+            updateIfValid('odo', safeGet(sig, 'Main_Odometer'), v => Number(v).toFixed(1) + ' Hrs');
             document.getElementById('odo').textContent = lastDataValues.odo;
 
             // Spray Status Text
@@ -878,85 +916,88 @@ function handleMessage(ev) {
     const vehicleSelect = document.getElementById('vehicleSelect');
     const reconnectBtn = document.getElementById('reconnectBtn');
     
-function connectVehicle(vid) {
-       if(ws) { ws.close(); clearInterval(wsKeepAlive); }
-       if(reconnectTimeout) clearTimeout(reconnectTimeout);
-       if(connectionStatusTimer) clearTimeout(connectionStatusTimer);
-       
-       if(abortController) abortController.abort();
-       abortController = new AbortController();
-       
-       selectedVehicle = vid;
-       clearAllDashboard();
-       updateConnectionStatus('disconnected');
-       
-       // Initialize with empty but valid structure
-       lastDataValues = {
-           speed: '– km/h',
-           rpm: '–',
-           odo: '– km',
-           batEnergy: '–',
-           mtrTemp: '–',
-           ctrlTemp: '–',
-           rmsCurr: '–',
-           batVolt: '–',
-           batCurr: '–'
-       };
-       
-       // FETCH HISTORY
-       fetch(`/history/${vid}`, { signal: abortController.signal })
-         .then(r=>r.json())
-         .then(d=>{
-           if(selectedVehicle !== vid) return;
-           if(d.path && d.path.length){
-               d.path.forEach(pt => {
-                   const ll = [pt[0], pt[1]];
-                   
-                   // pt[2] = spray_pump_status (1 = spraying, 0 = not spraying)
-                   const isSpraying = (pt[2] == 1);
-                   
-                   // FIX: Use pt[3] for Field Mode (1 = Field, 0 = Travel)
-                   // Your Python sends: [lat, lon, spray, field_mode]
-                   const isFieldMode = (pt[3] == 1); 
+  function connectVehicle(vid) {
+        if(ws) { ws.close(); clearInterval(wsKeepAlive); }
+        if(reconnectTimeout) clearTimeout(reconnectTimeout);
+        if(connectionStatusTimer) clearTimeout(connectionStatusTimer);
+        
+        if(abortController) abortController.abort();
+        abortController = new AbortController();
+        
+        selectedVehicle = vid;
+        clearAllDashboard();
+        updateConnectionStatus('disconnected');
+        
+        // Initialize with empty but valid structure
+        lastDataValues = {
+            speed: '– km/h',
+            rpm: '–',
+            odo: '– Hrs',
+            batEnergy: '–',
+            mtrTemp: '–',
+            ctrlTemp: '–',
+            rmsCurr: '–',
+            batVolt: '–',
+            batCurr: '–',
+            socP1: '–',
+            socP2: '–',
+            socActual: '–'
+        };
+        
+        // FETCH HISTORY
+        fetch(`/history/${vid}`, { signal: abortController.signal })
+          .then(r=>r.json())
+          .then(d=>{
+            if(selectedVehicle !== vid) return;
+            if(d.path && d.path.length){
+                d.path.forEach(pt => {
+                    const ll = [pt[0], pt[1]];
+                    
+                    // pt[2] = spray_pump_status (1 = spraying, 0 = not spraying)
+                    const isSpraying = (pt[2] == 1);
+                    
+                    // FIX: Use pt[3] for Field Mode (1 = Field, 0 = Travel)
+                    // Your Python sends: [lat, lon, spray, field_mode]
+                    const isFieldMode = (pt[3] == 1); 
 
-                   addPointToPath(ll, isSpraying, isFieldMode);
-                   
-                   // Update marker position without drawing line if it jumped
-                   currentLatLng = ll;
-               });
-               
-               if(currentLatLng) { 
-                   marker = L.marker(currentLatLng, {icon:vehicleIcon}).addTo(vehicleLayer);
-                   map.setView(currentLatLng, 16); 
-               }
-           }
-           if(d.gps_distance_km !== undefined) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
-           if(d.spray_distance_km !== undefined) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
-       }).catch(e => {
-           if (e.name !== 'AbortError') console.error("History fetch failed:", e);
-       });
+                    addPointToPath(ll, isSpraying, isFieldMode);
+                    
+                    // Update marker position without drawing line if it jumped
+                    currentLatLng = ll;
+                });
+                
+                if(currentLatLng) { 
+                    marker = L.marker(currentLatLng, {icon:vehicleIcon}).addTo(vehicleLayer);
+                    map.setView(currentLatLng, 16); 
+                }
+            }
+            if(d.gps_distance_km !== undefined) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
+            if(d.spray_distance_km !== undefined) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
+        }).catch(e => {
+            if (e.name !== 'AbortError') console.error("History fetch failed:", e);
+        });
 
-       // ... (Rest of WebSocket connection code remains same) ...
-       const proto = (location.protocol==='https:')?'wss:':'ws:';
-       ws = new WebSocket(`${proto}//${location.host}/ws/vehicle/${vid}`);
-       
-       ws.onopen = () => {
-           if(selectedVehicle === vid) {
-             resetConnectionTimer();
-             wsKeepAlive = setInterval(()=>{ if(ws && ws.readyState===1) ws.send('ping'); }, 30000);
-           }
-       };
-       ws.onclose = () => {
-           if(selectedVehicle === vid) {
-             updateConnectionStatus('disconnected');
-             reconnectTimeout = setTimeout(() => { if(selectedVehicle === vid && ws && ws.readyState===3) connectVehicle(vid); }, 5000);
-           }
-       };
-       ws.onerror = (error) => { 
-           if(selectedVehicle === vid) updateConnectionStatus('disconnected');
-       };
-       ws.onmessage = handleMessage;
-    }
+        // ... (Rest of WebSocket connection code remains same) ...
+        const proto = (location.protocol==='https:')?'wss:':'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/ws/vehicle/${vid}`);
+        
+        ws.onopen = () => {
+            if(selectedVehicle === vid) {
+              resetConnectionTimer();
+              wsKeepAlive = setInterval(()=>{ if(ws && ws.readyState===1) ws.send('ping'); }, 30000);
+            }
+        };
+        ws.onclose = () => {
+            if(selectedVehicle === vid) {
+              updateConnectionStatus('disconnected');
+              reconnectTimeout = setTimeout(() => { if(selectedVehicle === vid && ws && ws.readyState===3) connectVehicle(vid); }, 5000);
+            }
+        };
+        ws.onerror = (error) => { 
+            if(selectedVehicle === vid) updateConnectionStatus('disconnected');
+        };
+        ws.onmessage = handleMessage;
+      }
 
     vehicleSelect.addEventListener('change', (e)=>{ connectVehicle(e.target.value); });
     reconnectBtn.addEventListener('click', () => { connectVehicle(vehicleSelect.value); });
