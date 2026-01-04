@@ -13,6 +13,7 @@ import csv
 import os
 import math
 from datetime import datetime, timedelta
+from collections import deque
 
 app = FastAPI()
 
@@ -309,38 +310,50 @@ async def vehicle_ws(websocket: WebSocket, vehicle_id: str):
     except Exception as e:
         print(f"❌ WebSocket Error: {e}")
         manager.disconnect(websocket, vehicle_id)
+
 @app.get("/history/{vehicle_id}")
 async def get_history(vehicle_id: str):
     """Fetch today's history for specific vehicle."""
     today = datetime.now().strftime("%Y-%m-%d")
     filename = f"{LOG_DIR}/{today}_{vehicle_id}.csv"
     path = []
+    last_state = None
     
     if os.path.exists(filename):
         try:
             with open(filename, mode='r') as f:
                 reader = csv.DictReader(f)
-                for row in reader:
+                
+                # 1. Read all rows to build path
+                # Note: For very large files, this list conversion might be heavy, 
+                # but it allows us to easily get the last row.
+                rows = list(reader)
+                
+                for row in rows:
                     if row.get('lat') and row.get('lon'):
                         try:
                             lat = float(row['lat'])
                             lon = float(row['lon'])
                             spray = float(row.get('spray_pump_status', 0))
                             field_mode = float(row.get('field_mode', 0))
-                            # Format: [lat, lon, spray_status, field_mode]
                             path.append([lat, lon, spray, field_mode])
                         except: 
                             continue
+                
+                # 2. Grab the very last row for dashboard persistence
+                if rows:
+                    last_state = rows[-1]
+
         except Exception as e:
             print(f"❌ History read error: {e}")
     
-    # Calculate Distances using actual GPS coordinates
     total_km, spray_km = calculate_distances(path)
 
     return JSONResponse(content={
         "path": path,
         "gps_distance_km": total_km,
-        "spray_distance_km": spray_km
+        "spray_distance_km": spray_km,
+        "last_state": last_state  # <--- Sending the last known values
     })
 
 

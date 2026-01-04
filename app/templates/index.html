@@ -904,12 +904,14 @@ function handleMessage(ev) {
         // FETCH HISTORY
 // FIND THIS SECTION INSIDE connectVehicle function in index.html
 
+// ... inside connectVehicle(vid) ...
+      
       fetch(`/history/${vid}`, { signal: abortController.signal })
         .then(r => r.json())
         .then(d => {
           if (selectedVehicle !== vid) return;
           
-          // Process the path
+          // A. DRAW PATH (Existing Logic)
           if (d.path && d.path.length) {
               d.path.forEach(pt => {
                   const ll = [pt[0], pt[1]];
@@ -919,22 +921,110 @@ function handleMessage(ev) {
                   currentLatLng = ll;
               });
 
-              // --- FIX STARTS HERE ---
               if (currentLatLng) {
                   if (!marker) {
-                      // Only create if it doesn't exist yet
                       marker = L.marker(currentLatLng, {icon: vehicleIcon}).addTo(vehicleLayer);
                       map.setView(currentLatLng, 16);
                   } else {
-                      // If WebSocket created it already, just move it to the latest history point
                       marker.setLatLng(currentLatLng);
                   }
               }
-              // --- FIX ENDS HERE ---
           }
           
           if (d.gps_distance_km !== undefined) document.getElementById('gpsDist').textContent = d.gps_distance_km + ' km';
           if (d.spray_distance_km !== undefined) document.getElementById('sprayDist').textContent = d.spray_distance_km + ' km';
+
+          // B. RESTORE LAST KNOWN VALUES (New Logic)
+          if (d.last_state) {
+              const ls = d.last_state;
+
+              // 1. Helper to map CSV keys to Dashboard
+              const setTxt = (id, val, suffix='') => { 
+                  if(val !== null && val !== undefined && val !== '') {
+                      document.getElementById(id).textContent = val + suffix;
+                      // Update the internal memory so it doesn't flicker on next heartbeat
+                      // Note: We use a loose mapping here since CSV keys differ from WebSocket keys
+                      // but this visual update is enough for the user.
+                  }
+              };
+
+              // 2. Update Dashboard Cards
+              setTxt('speed', ls.speed_kmh, ' km/h');
+              setTxt('rpm', ls.motor_rpm);
+              setTxt('socText', Math.round(ls.soc_percent || 0));
+              setTxt('batEnergy', Number(ls.battery_energy_wh).toFixed(2));
+              setTxt('odo', Number(ls.odometer_km).toFixed(1), ' Hrs');
+              
+              // Restore Mode/Gear/Spray UI state
+              if(ls.field_mode == '1') {
+                   document.getElementById('modeBadge').textContent = "FIELD MODE";
+                   document.getElementById('modeBadge').style.background = "var(--success)";
+              } else if (ls.travel_mode == '1') {
+                   document.getElementById('modeBadge').textContent = "TRAVEL MODE";
+                   document.getElementById('modeBadge').style.background = "var(--warn)";
+              }
+
+              if(ls.spray_pump_status == '1') {
+                  const st = document.getElementById('sprayText');
+                  st.textContent = "ON"; st.style.color = "var(--success)";
+              } else {
+                  document.getElementById('sprayText').textContent = "OFF";
+              }
+              
+              if(ls.gear_low == '1') document.getElementById('gearText').textContent = "L";
+              else if(ls.gear_high == '1') document.getElementById('gearText').textContent = "H";
+              else document.getElementById('gearText').textContent = "N";
+
+              if(ls.drive_forward == '1') document.getElementById('drive').textContent = "D";
+              else if(ls.drive_reverse == '1') document.getElementById('drive').textContent = "R";
+              else document.getElementById('drive').textContent = "N";
+
+              // 3. Update Diagnostics Modal (Hidden but needs values)
+              setTxt('d_mtrTemp', ls.motor_temp_c);
+              setTxt('d_mtrRpm', ls.motor_rpm);
+              setTxt('d_rmsCurr', ls.motor_current_rms_a);
+              
+              setTxt('d_ctrlTemp', ls.controller_temp_c);
+              setTxt('d_ctrlVolt', ls.controller_voltage_v);
+              setTxt('d_ctrlCurr', ls.controller_current_a);
+              
+              setTxt('d_batVolt', ls.battery_voltage_v);
+              setTxt('d_batCurr', ls.battery_current_a);
+              setTxt('d_netCurr', ls.net_current_a);
+              setTxt('d_energy', ls.battery_energy_wh);
+              setTxt('d_soc', ls.soc_percent);
+
+              setTxt('d_hydMtrTemp', ls.hyd_motor_temp_c);
+              setTxt('d_hydCtrlTemp', ls.hyd_controller_temp_c);
+              
+              // 4. Update CONNECTION TIME (The critical part)
+              if (ls.timestamp) {
+                  // CSV timestamp is HH:MM:SS. We need to create a Date object for today.
+                  const today = new Date();
+                  const [h, m, s] = ls.timestamp.split(':');
+                  today.setHours(h, m, s);
+                  
+                  const timeDiff = Date.now() - today.getTime();
+                  lastMessageTime = today.getTime();
+                  lastMessageTimeFormatted = ls.timestamp;
+                  
+                  // Update the status UI immediately based on how old the data is
+                  // 3000ms = 3 seconds (orange), 30 mins = red
+                  if (timeDiff > 30 * 60 * 1000) {
+                      updateConnectionStatus('offline');
+                  } else if (timeDiff > 3000) {
+                      updateConnectionStatus('disconnected');
+                  } else {
+                      // If it's very fresh (e.g., page refresh while active), it might show connected
+                      // but usually, websocket isn't open yet, so disconnected is safer until WS opens.
+                      updateConnectionStatus('disconnected'); 
+                  }
+                  
+                  // Update the "Last update" footer
+                  document.getElementById('lastUpdate').textContent = lastMessageTimeFormatted;
+              }
+          }
+
       }).catch(e => {
           if (e.name !== 'AbortError') console.error("History fetch failed:", e);
       });
